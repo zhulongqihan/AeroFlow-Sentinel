@@ -1,85 +1,91 @@
 # AeroFlow Sentinel
 
-> An AI agent system for flight booking stability analysis, incident triage, and runbook-assisted investigation.
+> 一个面向航旅预订稳定性分析、故障研判与运维手册辅助排障的 AI Agent 系统。
 
-## Overview
+## 项目简介
 
-AeroFlow Sentinel is a Java-based AI Agent project for the flight booking domain. It combines two capabilities in one system:
+AeroFlow Sentinel 是一个基于 Java 17、Spring Boot 和 Spring AI Alibaba 构建的航旅场景 AI Agent 项目，当前聚焦于“航旅预订链路稳定性治理”。
 
-1. Conversational knowledge assistant: answers questions about booking pipeline governance, incident response, and operational runbooks.
-2. Flight booking stability inspection: uses a Supervisor-Planner-Executor multi-agent workflow to investigate risks across search, booking, ticketing, refund and rebooking, and GDS or supplier integrations.
+系统将两类能力整合在同一个工程中：
 
-The current repository is already aligned with the deployed online version and can run in a lightweight demo mode on low-spec ECS machines.
+1. 智能对话助手：围绕航旅预订链路、故障处理手册、排障流程提供多轮问答。
+2. 稳定性巡检 Agent：通过 Supervisor-Planner-Executor 多 Agent 协同，对搜索、下单、出票、退款改签、GDS 或供应商网关等链路进行分析并输出 Markdown 报告。
 
-## Current Scope
+当前仓库与线上演示版本保持一致，并且已经适配低配 ECS 的轻量部署模式。
 
-The system focuses on these flight-domain chains:
+英文说明见 README_EN.md。
 
-1. Flight search and pricing
-2. Booking creation and PNR processing
-3. Payment and ticket issuance
-4. Refund and rebooking fulfillment
-5. GDS and supplier gateway integrations
-6. Ancillary services such as seat and baggage
+## 业务范围
 
-## Key Features
+当前覆盖的核心业务链路包括：
 
-- Multi-turn chat with tool calling
-- SSE streaming responses
-- Multi-agent inspection workflow with Markdown report output
-- Internal runbook retrieval via RAG or local Markdown fallback
-- Mock alert and log evidence for demo mode
-- Lightweight deployment path for 2C2G ECS
+1. 航班搜索与报价
+2. 订单创建与 PNR 处理
+3. 支付与出票
+4. 退款与改签履约
+5. GDS 与供应商网关集成
+6. 选座、行李、保险等附加服务
 
-## Architecture
+## 核心能力
 
-### 1. Chat Layer
+- 支持工具调用的多轮对话
+- 支持 SSE 流式输出
+- 支持多 Agent 巡检与 Markdown 分析报告输出
+- 支持基于 RAG 的知识检索，以及 Milvus 关闭时的本地 Markdown 兜底检索
+- 支持 Demo 模式下的模拟告警与模拟日志
+- 支持低成本、低规格服务器部署
+
+## 系统架构
+
+### 对话层
 
 - POST /api/chat
 - POST /api/chat_stream
 
-Uses ChatController plus ChatService to build a ReactAgent with domain tools.
+由 ChatController 和 ChatService 负责，底层通过 ReactAgent 组合航旅领域工具能力。
 
-### 2. Inspection Layer
+### 巡检层
 
 - POST /api/flight_guard
 
-Compatible legacy routes are still kept for older frontends or demos:
+为了兼容旧版前端和历史演示链路，仍保留以下别名路由：
 
 - POST /api/campaign_guard
 - POST /api/ai_ops
 
-This path triggers a Supervisor-Planner-Executor workflow and returns a flight booking stability report as streamed Markdown.
+巡检接口会触发 Supervisor-Planner-Executor 多 Agent 工作流，并以流式 Markdown 的形式输出航旅稳定性分析报告。
 
-### 3. Knowledge Layer
+### 知识层
 
-- InternalDocsTools queries Milvus when enabled
-- Falls back to local aiops-docs Markdown files when Milvus is disabled
+- Milvus 启用时，通过 InternalDocsTools 检索向量知识库
+- Milvus 关闭时，自动回退到 aiops-docs 目录下的本地 Markdown 手册
 
-## Tech Stack
+## 技术栈
 
-| Component | Version | Notes |
+| 组件 | 版本 | 说明 |
 |------|------|------|
-| Java | 17 | Main language |
-| Spring Boot | 3.2.0 | Backend framework |
-| Spring AI Alibaba | 1.1.0.0-RC2 | Agent framework |
-| DashScope | 2.17.0 | LLM and embedding services |
-| Milvus | 2.6.10 | Optional vector database |
-| Prometheus | - | Alert source or mock source |
-| Tencent CLS MCP | - | Optional remote log tooling |
+| Java | 17 | 主语言 |
+| Spring Boot | 3.2.0 | 后端框架 |
+| Spring AI Alibaba | 1.1.0.0-RC2 | Agent 框架 |
+| DashScope | 2.17.0 | 大模型与向量服务 |
+| Milvus | 2.6.10 | 可选向量数据库 |
+| Prometheus | - | 告警源或 Demo 告警源 |
+| Tencent CLS MCP | - | 可选远程日志工具接入 |
 
-## Repo Structure
+## 仓库结构
 
 ```text
 aeroflow-sentinel/
-├── src/main/java/org/example/
-│   ├── controller/
-│   ├── service/
+├── src/main/java/io/github/zhulongqihan/aeroflow/sentinel/
 │   ├── agent/tool/
-│   ├── config/
 │   ├── client/
+│   ├── config/
 │   ├── constant/
-│   └── dto/
+│   ├── controller/
+│   ├── dto/
+│   ├── service/
+│   ├── tool/
+│   └── AeroFlowSentinelApplication.java
 ├── src/main/resources/
 │   ├── static/
 │   ├── application.yml
@@ -90,25 +96,24 @@ aeroflow-sentinel/
 └── Makefile
 ```
 
-Note:
-The repository branding, Maven coordinates, and generated jar name are all aligned to AeroFlow Sentinel.
+当前仓库品牌、Maven 坐标、启动类和构建产物名已经统一为 AeroFlow Sentinel。
 
-## APIs
+## 接口说明
 
-### Chat APIs
+### 对话接口
 
 ```bash
 POST /api/chat
 POST /api/chat_stream
 ```
 
-### Inspection API
+### 巡检接口
 
 ```bash
 POST /api/flight_guard
 ```
 
-### File and Session APIs
+### 文件与会话接口
 
 ```bash
 POST /api/upload
@@ -117,50 +122,60 @@ GET /api/chat/session/{sessionId}
 GET /milvus/health
 ```
 
-## Demo Mode
+## Demo 模式
 
-The recommended deployment mode for a low-spec server is the demo profile:
+对于 2C2G 等低配机器，推荐使用 demo profile 运行：
 
 ```bash
 mvn spring-boot:run -Dspring-boot.run.profiles=demo
 ```
 
-In demo mode:
+在 Demo 模式下：
 
-- Milvus is disabled
-- MCP client is disabled
-- Prometheus alerts use mock data
-- CLS logs use mock data
-- Internal docs retrieval uses local Markdown fallback
+- Milvus 默认关闭
+- MCP 客户端默认关闭
+- Prometheus 告警采用 mock 数据
+- CLS 日志采用 mock 数据
+- 内部知识检索使用本地 Markdown 兜底
 
-## Build and Run
+## 构建与运行
 
-### Environment Variable
+### 1. 配置环境变量
+
+Linux 或 macOS:
 
 ```bash
 export DASHSCOPE_API_KEY=your-api-key
 ```
 
-### Package
+PowerShell:
+
+```powershell
+$env:DASHSCOPE_API_KEY="your-api-key"
+```
+
+### 2. 打包
 
 ```bash
 mvn clean package -DskipTests
 ```
 
-### Run Demo Profile
+### 3. 运行 Demo 模式
 
 ```bash
 java -jar target/aeroflow-sentinel-1.0-SNAPSHOT.jar --spring.profiles.active=demo
 ```
 
-### Optional Full Mode
+### 4. 可选的完整模式
 
 ```bash
 docker compose up -d -f vector-database.yml
 java -jar target/aeroflow-sentinel-1.0-SNAPSHOT.jar
 ```
 
-## Example Requests
+## 调用示例
+
+### 普通问答
 
 ```bash
 curl -X POST http://localhost:9900/api/chat \
@@ -168,31 +183,35 @@ curl -X POST http://localhost:9900/api/chat \
   -d '{"Id":"test","Question":"出票失败率升高时应该先检查什么？"}'
 ```
 
+### 巡检分析
+
 ```bash
 curl -N -X POST http://localhost:9900/api/flight_guard
 ```
+
+### 上传知识文档
 
 ```bash
 curl -X POST http://localhost:9900/api/upload \
   -F "file=@aiops-docs/flight_search_latency_spike.md"
 ```
 
-## Live Access
+## 在线演示
 
-The current online deployment is available at:
+当前线上演示地址：
 
 - http://agent.cyruszhang.online
 
-## Open Source Positioning
+## 适用方向
 
-This project is suitable as an open-source demo for:
+这个项目适合作为以下方向的开源展示项目：
 
-- Java backend engineering
-- AI Agent orchestration
-- RAG system design
-- incident response workflow automation
-- low-cost deployment of LLM-powered operational tools
+- Java 后端开发
+- AI Agent 编排与落地
+- RAG 系统设计
+- 故障响应与巡检自动化
+- 低成本 LLM 运维工具部署
 
-## License
+## 许可证
 
 MIT
