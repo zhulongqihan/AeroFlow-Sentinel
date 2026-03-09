@@ -26,6 +26,15 @@
                     </svg>
                     <span>新建对话</span>
                 </button>
+
+                <div class="sidebar-nav-group">
+                    <button class="sidebar-nav-btn active" id="overviewNavBtn" type="button">
+                        <span>运行总览</span>
+                    </button>
+                    <button class="sidebar-nav-btn" id="workspaceNavBtn" type="button">
+                        <span>会话工作台</span>
+                    </button>
+                </div>
                 
                 <div class="chat-history-section">
                     <div class="history-header">
@@ -41,141 +50,154 @@
 
         <!-- 主内容区域 -->
         <main class="main-content">
-            <button class="ai-ops-top-btn" id="aiOpsSidebarBtn">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>链路巡检</span>
-            </button>
-            <section class="ops-dashboard" id="opsDashboard">
-                <div class="ops-dashboard-hero">
-                    <div class="ops-dashboard-copy">
-                        <span class="ops-dashboard-kicker">AeroFlow Sentinel 运行看板</span>
-                        <h1>今日航旅预订链路运行总览</h1>
-                        <p>聚合搜索、下单、出票、退改签与供应商网关相关诊断入口，支持值班问答、链路巡检和会话续查，帮助快速收敛风险定位路径。</p>
-                    </div>
-                    <div class="ops-capability-strip">
-                        <span class="capability-pill">搜索与报价异常</span>
-                        <span class="capability-pill">下单创建失败</span>
-                        <span class="capability-pill">支付与出票延迟</span>
-                        <span class="capability-pill">退改签履约积压</span>
-                        <span class="capability-pill">GDS/供应商网关波动</span>
-                    </div>
-                </div>
-
-                <div class="ops-metrics-grid">
-                    <article class="ops-metric-card">
-                        <span class="metric-label">当前模式</span>
-                        <strong class="metric-value" id="dashboardModeValue">快速</strong>
-                        <span class="metric-meta" id="dashboardModeMeta">空闲</span>
-                    </article>
-                    <article class="ops-metric-card">
-                        <span class="metric-label">服务端会话</span>
-                        <strong class="metric-value" id="dashboardSessionValue">未建立</strong>
-                        <span class="metric-meta" id="dashboardSessionMeta">调用后自动建立并持久化</span>
-                    </article>
-                    <article class="ops-metric-card">
-                        <span class="metric-label">本地历史</span>
-                        <strong class="metric-value" id="dashboardHistoryValue">0</strong>
-                        <span class="metric-meta" id="dashboardHistoryMeta">浏览器侧快速回看</span>
-                    </article>
-                    <article class="ops-metric-card accent-card">
-                        <span class="metric-label">最新处置</span>
-                        <strong class="metric-value" id="dashboardActionValue">等待操作</strong>
-                        <span class="metric-meta" id="dashboardActionMeta">可从下方任务卡片发起快捷诊断</span>
-                    </article>
-                </div>
-
-                <div class="ops-panels-grid">
-                    <section class="ops-panel">
-                        <div class="panel-header">
-                            <div>
-                                <h2>快捷诊断任务</h2>
-                                <p>预置高频值班场景，点击后会自动切换合适模式并开始诊断。</p>
-                            </div>
+            <section class="main-page overview-page active" id="overviewPage">
+                <section class="ops-dashboard" id="opsDashboard">
+                    <div class="ops-dashboard-hero">
+                        <div class="ops-dashboard-copy">
+                            <span class="ops-dashboard-kicker">AeroFlow Sentinel 运行看板</span>
+                            <h1>今日航旅预订链路运行总览</h1>
+                            <p>聚合搜索、下单、出票、退改签与供应商网关相关诊断入口，支持值班问答、链路巡检和会话续查，帮助快速收敛风险定位路径。</p>
                         </div>
-                        <div class="quick-actions-grid" id="quickActionsGrid"></div>
-                    </section>
-
-                    <section class="ops-panel ops-panel-timeline">
-                        <div class="panel-header">
-                            <div>
-                                <h2>最新处置动态</h2>
-                                <p>记录最近会话切换、诊断触发和结果回写，便于快速回看处置轨迹。</p>
-                            </div>
+                        <div class="ops-capability-strip">
+                            <span class="capability-pill">搜索与报价异常</span>
+                            <span class="capability-pill">下单创建失败</span>
+                            <span class="capability-pill">支付与出票延迟</span>
+                            <span class="capability-pill">退改签履约积压</span>
+                            <span class="capability-pill">GDS/供应商网关波动</span>
                         </div>
-                        <div class="activity-timeline" id="activityTimeline"></div>
-                    </section>
-                </div>
-            </section>
-            <div class="chat-container">
-                <div class="welcome-greeting" id="welcomeGreeting">
-                    <p>你好，我是航旅预订链路稳定性助手</p>
-                </div>
-                <div class="chat-messages" id="chatMessages">
-                </div>
-                
-                <div class="chat-input-container">
-                    <div class="input-group-wrapper">
-                        <div class="input-wrapper">
-                            <input type="text" id="messageInput" placeholder="询问航班搜索、预订出票、退改签或链路稳定性问题" maxlength="1000" class="message-input">
-                            <div class="input-bottom-bar">
-                                <div class="tools-btn-wrapper">
-                                    <button class="tools-btn" id="toolsBtn" title="更多选项">
-                                        <svg class="tools-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
-                                            <circle cx="19" cy="12" r="1.5" fill="currentColor"/>
-                                            <circle cx="5" cy="12" r="1.5" fill="currentColor"/>
-                                        </svg>
-                                    </button>
-                                    <div class="tools-menu" id="toolsMenu">
-                                        <div class="tools-menu-item" id="uploadFileItem">
-                                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                            <span>上传文件</span>
-                                        </div>
-                                    </div>
+                    </div>
+
+                    <div class="ops-metrics-grid">
+                        <article class="ops-metric-card">
+                            <span class="metric-label">当前模式</span>
+                            <strong class="metric-value" id="dashboardModeValue">快速</strong>
+                            <span class="metric-meta" id="dashboardModeMeta">空闲</span>
+                        </article>
+                        <article class="ops-metric-card">
+                            <span class="metric-label">服务端会话</span>
+                            <strong class="metric-value" id="dashboardSessionValue">未建立</strong>
+                            <span class="metric-meta" id="dashboardSessionMeta">调用后自动建立并持久化</span>
+                        </article>
+                        <article class="ops-metric-card">
+                            <span class="metric-label">本地历史</span>
+                            <strong class="metric-value" id="dashboardHistoryValue">0</strong>
+                            <span class="metric-meta" id="dashboardHistoryMeta">浏览器侧快速回看</span>
+                        </article>
+                        <article class="ops-metric-card accent-card">
+                            <span class="metric-label">最新处置</span>
+                            <strong class="metric-value" id="dashboardActionValue">等待操作</strong>
+                            <span class="metric-meta" id="dashboardActionMeta">可从下方任务卡片发起快捷诊断</span>
+                        </article>
+                    </div>
+
+                    <div class="ops-panels-grid">
+                        <section class="ops-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <h2>快捷诊断任务</h2>
+                                    <p>预置高频值班场景，点击后会自动切换合适模式并开始诊断。</p>
                                 </div>
-                                <div class="right-actions">
-                                    <div class="mode-selector-wrapper">
-                                        <button class="mode-selector-btn" id="modeSelectorBtn">
-                                            <span id="currentModeText">快速</span>
-                                            <svg class="dropdown-arrow" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </div>
+                            <div class="quick-actions-grid" id="quickActionsGrid"></div>
+                        </section>
+
+                        <section class="ops-panel ops-panel-timeline">
+                            <div class="panel-header">
+                                <div>
+                                    <h2>最新处置动态</h2>
+                                    <p>记录最近会话切换、诊断触发和结果回写，便于快速回看处置轨迹。</p>
+                                </div>
+                            </div>
+                            <div class="activity-timeline" id="activityTimeline"></div>
+                        </section>
+                    </div>
+                </section>
+            </section>
+
+            <section class="main-page workspace-page" id="workspacePage">
+                <div class="workspace-topbar">
+                    <div>
+                        <span class="workspace-kicker">会话工作台</span>
+                        <h2>航旅稳定性诊断对话</h2>
+                        <p>在这里继续追问、加载历史会话或直接发起链路巡检。</p>
+                    </div>
+                    <button class="ai-ops-top-btn" id="aiOpsSidebarBtn">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <span>链路巡检</span>
+                    </button>
+                </div>
+
+                <div class="chat-container">
+                    <div class="welcome-greeting" id="welcomeGreeting">
+                        <p>你好，我是航旅预订链路稳定性助手</p>
+                    </div>
+                    <div class="chat-messages" id="chatMessages">
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <div class="input-group-wrapper">
+                            <div class="input-wrapper">
+                                <input type="text" id="messageInput" placeholder="询问航班搜索、预订出票、退改签或链路稳定性问题" maxlength="1000" class="message-input">
+                                <div class="input-bottom-bar">
+                                    <div class="tools-btn-wrapper">
+                                        <button class="tools-btn" id="toolsBtn" title="更多选项">
+                                            <svg class="tools-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                                                <circle cx="19" cy="12" r="1.5" fill="currentColor"/>
+                                                <circle cx="5" cy="12" r="1.5" fill="currentColor"/>
                                             </svg>
                                         </button>
-                                        <div class="mode-dropdown" id="modeDropdown">
-                                            <div class="dropdown-header">选择对话方式</div>
-                                            <div class="dropdown-item active" data-mode="quick">
-                                                <div class="dropdown-item-main">
-                                                    <span>快速</span>
-                                                    <span class="badge-new">新</span>
-                                                </div>
-                                                <div class="dropdown-item-sub">快速对话</div>
-                                            </div>
-                                            <div class="dropdown-item" data-mode="stream">
-                                                <div class="dropdown-item-main">
-                                                    <span>流式</span>
-                                                </div>
-                                                <div class="dropdown-item-sub">流式对话</div>
+                                        <div class="tools-menu" id="toolsMenu">
+                                            <div class="tools-menu-item" id="uploadFileItem">
+                                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                                <span>上传文件</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <button class="send-btn-circle" id="sendButton" title="发送">
-                                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                    </button>
+                                    <div class="right-actions">
+                                        <div class="mode-selector-wrapper">
+                                            <button class="mode-selector-btn" id="modeSelectorBtn">
+                                                <span id="currentModeText">快速</span>
+                                                <svg class="dropdown-arrow" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                </svg>
+                                            </button>
+                                            <div class="mode-dropdown" id="modeDropdown">
+                                                <div class="dropdown-header">选择对话方式</div>
+                                                <div class="dropdown-item active" data-mode="quick">
+                                                    <div class="dropdown-item-main">
+                                                        <span>快速</span>
+                                                        <span class="badge-new">新</span>
+                                                    </div>
+                                                    <div class="dropdown-item-sub">快速对话</div>
+                                                </div>
+                                                <div class="dropdown-item" data-mode="stream">
+                                                    <div class="dropdown-item-main">
+                                                        <span>流式</span>
+                                                    </div>
+                                                    <div class="dropdown-item-sub">流式对话</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button class="send-btn-circle" id="sendButton" title="发送">
+                                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+                        <input type="file" id="fileInput" accept=".txt,.md,.markdown" style="display: none;">
                     </div>
-                    <input type="file" id="fileInput" accept=".txt,.md,.markdown" style="display: none;">
                 </div>
-            </div>
+            </section>
         </main>
     </div>
 

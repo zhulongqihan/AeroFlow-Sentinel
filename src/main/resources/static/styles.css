@@ -54,6 +54,33 @@ body {
     gap: 8px;
 }
 
+.sidebar-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.sidebar-nav-btn {
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    text-align: left;
+    color: #475569;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-nav-btn:hover,
+.sidebar-nav-btn.active {
+    background: #ffffff;
+    color: #0f172a;
+}
+
 .new-chat-btn {
     width: 100%;
     padding: 12px;
@@ -208,9 +235,62 @@ body {
     background:
         radial-gradient(circle at top left, rgba(228, 240, 254, 0.95), transparent 34%),
         linear-gradient(180deg, #f8fbff 0%, #ffffff 46%);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
     position: relative;
+}
+
+.main-page {
+    display: none;
+    min-height: 100%;
+}
+
+.main-page.active {
+    display: flex;
+}
+
+.overview-page {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.workspace-page {
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.workspace-topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 24px 0 24px;
+    flex-shrink: 0;
+}
+
+.workspace-kicker {
+    display: inline-flex;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.workspace-topbar h2 {
+    font-size: 1.35rem;
+    line-height: 1.2;
+    color: #0f172a;
+    margin-bottom: 6px;
+}
+
+.workspace-topbar p {
+    color: #64748b;
+    font-size: 0.9rem;
 }
 
 .ops-dashboard {
@@ -218,24 +298,10 @@ body {
     border-bottom: 1px solid rgba(218, 220, 224, 0.9);
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(237, 244, 255, 0.96));
     backdrop-filter: blur(8px);
-    max-height: 50vh;
+    width: 100%;
     overflow-y: auto;
     flex-shrink: 0;
-    transition: padding 0.25s ease, max-height 0.25s ease;
-}
-
-.ops-dashboard.compact {
-    padding: 10px 24px;
-    max-height: 118px;
-}
-
-.ops-dashboard.compact .ops-dashboard-hero,
-.ops-dashboard.compact .ops-panels-grid {
-    display: none;
-}
-
-.ops-dashboard.compact .ops-metrics-grid {
-    margin-top: 0;
+    transition: padding 0.25s ease;
 }
 
 .ops-dashboard-hero {
@@ -456,9 +522,6 @@ body {
 
 /* 航旅链路巡检按钮 - 右上角 */
 .ai-ops-top-btn {
-    position: absolute;
-    top: 16px;
-    right: 16px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -471,8 +534,8 @@ body {
     font-size: 14px;
     font-weight: 500;
     transition: all 0.2s;
-    z-index: 100;
     box-shadow: 0 2px 4px rgba(255, 152, 0, 0.3);
+    flex-shrink: 0;
 }
 
 .ai-ops-top-btn:hover {
@@ -494,6 +557,7 @@ body {
     overflow: hidden;
     position: relative;
     min-height: 280px;
+    padding-top: 12px;
 }
 
 .chat-container.centered {
@@ -533,11 +597,12 @@ body {
 @media (max-width: 900px) {
     .ops-dashboard {
         padding: 16px 16px 14px 16px;
-        max-height: 44vh;
     }
 
-    .ops-dashboard.compact {
-        padding: 10px 16px;
+    .workspace-topbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 16px 16px 0 16px;
     }
 
     .ops-dashboard-hero {

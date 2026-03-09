@@ -3,6 +3,7 @@ class AeroFlowSentinelApp {
     constructor() {
         this.apiBaseUrl = `${window.location.origin}/api`;
         this.currentMode = 'quick'; // 'quick' 或 'stream'
+        this.currentPage = 'overview';
         this.sessionId = this.generateSessionId();
         this.isStreaming = false;
         this.currentChatHistory = []; // 当前对话的消息历史
@@ -150,6 +151,8 @@ class AeroFlowSentinelApp {
         this.sidebar = document.querySelector('.sidebar');
         this.newChatBtn = document.getElementById('newChatBtn');
         this.aiOpsSidebarBtn = document.getElementById('aiOpsSidebarBtn');
+        this.overviewNavBtn = document.getElementById('overviewNavBtn');
+        this.workspaceNavBtn = document.getElementById('workspaceNavBtn');
         
         // 输入区域元素
         this.messageInput = document.getElementById('messageInput');
@@ -169,6 +172,8 @@ class AeroFlowSentinelApp {
         this.chatInputContainer = document.querySelector('.chat-input-container');
         this.mainContent = document.querySelector('.main-content');
         this.opsDashboard = document.getElementById('opsDashboard');
+        this.overviewPage = document.getElementById('overviewPage');
+        this.workspacePage = document.getElementById('workspacePage');
         this.welcomeGreeting = document.getElementById('welcomeGreeting');
         this.chatHistoryList = document.getElementById('chatHistoryList');
         this.quickActionsGrid = document.getElementById('quickActionsGrid');
@@ -191,6 +196,14 @@ class AeroFlowSentinelApp {
         // 新建对话
         if (this.newChatBtn) {
             this.newChatBtn.addEventListener('click', () => this.newChat());
+        }
+
+        if (this.overviewNavBtn) {
+            this.overviewNavBtn.addEventListener('click', () => this.switchPage('overview'));
+        }
+
+        if (this.workspaceNavBtn) {
+            this.workspaceNavBtn.addEventListener('click', () => this.switchPage('workspace'));
         }
         
         // 链路巡检按钮
@@ -281,6 +294,26 @@ class AeroFlowSentinelApp {
         }
     }
 
+    switchPage(page) {
+        this.currentPage = page;
+
+        if (this.overviewPage) {
+            this.overviewPage.classList.toggle('active', page === 'overview');
+        }
+
+        if (this.workspacePage) {
+            this.workspacePage.classList.toggle('active', page === 'workspace');
+        }
+
+        if (this.overviewNavBtn) {
+            this.overviewNavBtn.classList.toggle('active', page === 'overview');
+        }
+
+        if (this.workspaceNavBtn) {
+            this.workspaceNavBtn.classList.toggle('active', page === 'workspace');
+        }
+    }
+
     // 切换工具菜单显示/隐藏
     toggleToolsMenu() {
         if (this.toolsMenu && this.toolsBtn) {
@@ -364,6 +397,7 @@ class AeroFlowSentinelApp {
         
         // 更新历史对话列表
         this.renderChatHistory();
+        this.switchPage('workspace');
     }
     
     // 保存当前对话到历史记录（新建）
@@ -480,6 +514,7 @@ class AeroFlowSentinelApp {
 
         if (action.action === 'aiops') {
             this.recordActivity('快捷任务', `触发 ${action.title}`);
+            this.switchPage('workspace');
             await this.triggerAIOps();
             return;
         }
@@ -491,6 +526,7 @@ class AeroFlowSentinelApp {
 
         this.newChat();
         this.selectMode(action.mode, true);
+        this.switchPage('workspace');
 
         if (this.messageInput) {
             this.messageInput.value = action.prompt;
@@ -756,6 +792,7 @@ class AeroFlowSentinelApp {
         this.renderChatHistory();
         this.recordActivity('加载历史会话', `载入 ${history.title}`);
         this.syncSessionStatus({ silent: true });
+        this.switchPage('workspace');
     }
     
     // 删除历史对话
@@ -856,6 +893,8 @@ class AeroFlowSentinelApp {
     }
 
     focusConversation() {
+        this.switchPage('workspace');
+
         if (this.mainContent) {
             this.mainContent.scrollTo({
                 top: this.mainContent.scrollHeight,
@@ -1263,14 +1302,8 @@ class AeroFlowSentinelApp {
             const hasMessages = this.chatMessages.querySelectorAll('.message').length > 0;
             if (!hasMessages) {
                 this.chatContainer.classList.add('centered');
-                if (this.opsDashboard) {
-                    this.opsDashboard.classList.remove('compact');
-                }
             } else {
                 this.chatContainer.classList.remove('centered');
-                if (this.opsDashboard) {
-                    this.opsDashboard.classList.add('compact');
-                }
                 this.focusConversation();
             }
         }
