@@ -1,0 +1,18 @@
+spring:
+  ai:
+    mcp:
+      client:
+        enabled: false
+
+milvus:
+  enabled: false
+
+knowledge:
+  base:
+    path: ./aiops-docs
+
+prometheus:
+  mock-enabled: true
+
+cls:
+  mock-enabled: true
