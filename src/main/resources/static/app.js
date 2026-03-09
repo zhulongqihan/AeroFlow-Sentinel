@@ -8,6 +8,54 @@ class AeroFlowSentinelApp {
         this.currentChatHistory = []; // 当前对话的消息历史
         this.chatHistories = this.loadChatHistories(); // 所有历史对话
         this.isCurrentChatFromHistory = false; // 标记当前对话是否是从历史记录加载的
+        this.serverSessionState = {
+            available: false,
+            status: '未建立',
+            messagePairCount: 0,
+            updateTime: null
+        };
+        this.activityFeed = [];
+        this.quickActions = [
+            {
+                key: 'search-latency',
+                title: '搜索报价波动诊断',
+                description: '快速定位搜索超时、报价抖动和供应商返回异常。',
+                badge: '快速问答',
+                mode: 'quick',
+                prompt: '请按航旅值班排障视角，诊断“航班搜索 RT 飙升且报价成功率下降”时应先检查哪些指标、日志和降级策略。'
+            },
+            {
+                key: 'booking-failure',
+                title: '下单创建失败排查',
+                description: '演示从订单创建失败切入的诊断思路和证据路径。',
+                badge: '流式分析',
+                mode: 'stream',
+                prompt: '请流式分析“订单创建失败率升高”场景，按接口、库存、幂等、支付前置校验四个方向给出排查顺序。'
+            },
+            {
+                key: 'ticket-delay',
+                title: '支付出票延迟分析',
+                description: '演示对支付成功但出票缓慢的链路分段排查。',
+                badge: '快速问答',
+                mode: 'quick',
+                prompt: '如果出现“支付成功但出票延迟明显升高”，请结合航旅链路拆出可能根因、关键日志位点和应急动作。'
+            },
+            {
+                key: 'refund-backlog',
+                title: '退改签积压处置',
+                description: '突出履约链路与人工兜底策略的结合。',
+                badge: '流式分析',
+                mode: 'stream',
+                prompt: '请作为航旅稳定性值班助手，分析“退改签工单积压”场景，并区分系统瓶颈、人工审核瓶颈和供应商瓶颈。'
+            },
+            {
+                key: 'flight-guard',
+                title: '一键链路巡检',
+                description: '直接触发 Supervisor-Planner-Executor 多 Agent 巡检流程。',
+                badge: '多 Agent',
+                action: 'aiops'
+            }
+        ];
         
         this.initializeElements();
         this.bindEvents();
@@ -15,6 +63,10 @@ class AeroFlowSentinelApp {
         this.initMarkdown();
         this.checkAndSetCentered();
         this.renderChatHistory();
+        this.renderQuickActions();
+        this.recordActivity('系统就绪', '值班驾驶舱已加载，可以直接发起问答或巡检');
+        this.refreshOpsDashboard();
+        this.syncSessionStatus({ silent: true });
     }
 
     // 初始化Markdown配置
@@ -116,6 +168,16 @@ class AeroFlowSentinelApp {
         this.chatContainer = document.querySelector('.chat-container');
         this.welcomeGreeting = document.getElementById('welcomeGreeting');
         this.chatHistoryList = document.getElementById('chatHistoryList');
+        this.quickActionsGrid = document.getElementById('quickActionsGrid');
+        this.activityTimeline = document.getElementById('activityTimeline');
+        this.dashboardModeValue = document.getElementById('dashboardModeValue');
+        this.dashboardModeMeta = document.getElementById('dashboardModeMeta');
+        this.dashboardSessionValue = document.getElementById('dashboardSessionValue');
+        this.dashboardSessionMeta = document.getElementById('dashboardSessionMeta');
+        this.dashboardHistoryValue = document.getElementById('dashboardHistoryValue');
+        this.dashboardHistoryMeta = document.getElementById('dashboardHistoryMeta');
+        this.dashboardActionValue = document.getElementById('dashboardActionValue');
+        this.dashboardActionMeta = document.getElementById('dashboardActionMeta');
         
         // 初始化时检查是否需要居中
         this.checkAndSetCentered();
@@ -203,6 +265,17 @@ class AeroFlowSentinelApp {
         if (this.fileInput) {
             this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
         }
+
+        if (this.quickActionsGrid) {
+            this.quickActionsGrid.addEventListener('click', (event) => {
+                const actionCard = event.target.closest('.quick-action-card');
+                if (!actionCard) {
+                    return;
+                }
+                const actionKey = actionCard.getAttribute('data-action-key');
+                this.handleQuickAction(actionKey);
+            });
+        }
     }
 
     // 切换工具菜单显示/隐藏
@@ -265,10 +338,18 @@ class AeroFlowSentinelApp {
         
         // 生成新的会话ID
         this.sessionId = this.generateSessionId();
+        this.serverSessionState = {
+            available: false,
+            status: '未建立',
+            messagePairCount: 0,
+            updateTime: null
+        };
         
         // 重置模式为快速
         this.currentMode = 'quick';
         this.updateUI();
+        this.recordActivity('新建会话', `创建新会话 ${this.shortSessionId(this.sessionId)}`);
+        this.syncSessionStatus({ silent: true });
         
         // 重新设置居中样式（确保对话框居中显示）
         this.checkAndSetCentered();
@@ -368,9 +449,226 @@ class AeroFlowSentinelApp {
     saveChatHistories() {
         try {
             localStorage.setItem('chatHistories', JSON.stringify(this.chatHistories));
+            this.refreshOpsDashboard();
         } catch (e) {
             console.error('保存历史对话失败:', e);
         }
+    }
+
+    renderQuickActions() {
+        if (!this.quickActionsGrid) {
+            return;
+        }
+
+        this.quickActionsGrid.innerHTML = this.quickActions.map((action) => `
+            <button class="quick-action-card" data-action-key="${action.key}" type="button">
+                <span class="quick-action-badge">${this.escapeHtml(action.badge)}</span>
+                <strong>${this.escapeHtml(action.title)}</strong>
+                <p>${this.escapeHtml(action.description)}</p>
+            </button>
+        `).join('');
+    }
+
+    async handleQuickAction(actionKey) {
+        const action = this.quickActions.find((item) => item.key === actionKey);
+        if (!action) {
+            return;
+        }
+
+        if (action.action === 'aiops') {
+            this.recordActivity('一键演示', `触发场景 ${action.title}`);
+            await this.triggerAIOps();
+            return;
+        }
+
+        if (this.isStreaming) {
+            this.showNotification('请等待当前操作完成', 'warning');
+            return;
+        }
+
+        this.newChat();
+        this.selectMode(action.mode, true);
+
+        if (this.messageInput) {
+            this.messageInput.value = action.prompt;
+        }
+
+        this.recordActivity('一键演示', `加载场景 ${action.title}`);
+        await this.sendMessage();
+    }
+
+    refreshOpsDashboard() {
+        const modeNames = {
+            quick: '快速',
+            stream: '流式'
+        };
+
+        if (this.dashboardModeValue) {
+            this.dashboardModeValue.textContent = modeNames[this.currentMode] || '快速';
+        }
+
+        if (this.dashboardModeMeta) {
+            this.dashboardModeMeta.textContent = this.isStreaming ? '任务执行中' : `当前会话 ${this.shortSessionId(this.sessionId)}`;
+        }
+
+        if (this.dashboardSessionValue) {
+            this.dashboardSessionValue.textContent = this.serverSessionState.available
+                ? `${this.serverSessionState.messagePairCount} 轮对话`
+                : this.serverSessionState.status;
+        }
+
+        if (this.dashboardSessionMeta) {
+            this.dashboardSessionMeta.textContent = this.serverSessionState.available
+                ? `服务端更新时间 ${this.formatDashboardTime(this.serverSessionState.updateTime)}`
+                : '调用后自动建立并持久化';
+        }
+
+        if (this.dashboardHistoryValue) {
+            this.dashboardHistoryValue.textContent = String(this.chatHistories.length);
+        }
+
+        if (this.dashboardHistoryMeta) {
+            this.dashboardHistoryMeta.textContent = this.isCurrentChatFromHistory
+                ? '当前页面来自本地历史回放'
+                : '浏览器 localStorage 快速回看';
+        }
+
+        const latestActivity = this.activityFeed[0];
+        if (this.dashboardActionValue) {
+            this.dashboardActionValue.textContent = latestActivity ? latestActivity.title : '等待操作';
+        }
+
+        if (this.dashboardActionMeta) {
+            this.dashboardActionMeta.textContent = latestActivity
+                ? `${latestActivity.detail} · ${this.formatRelativeTime(latestActivity.timestamp)}`
+                : '点击下方场景可一键演示';
+        }
+
+        this.renderActivityTimeline();
+    }
+
+    renderActivityTimeline() {
+        if (!this.activityTimeline) {
+            return;
+        }
+
+        if (this.activityFeed.length === 0) {
+            this.activityTimeline.innerHTML = '<div class="timeline-empty">暂无操作记录，建议先点击一个一键演示场景。</div>';
+            return;
+        }
+
+        this.activityTimeline.innerHTML = this.activityFeed.map((item) => `
+            <div class="timeline-item">
+                <span class="timeline-dot"></span>
+                <div class="timeline-content">
+                    <strong>${this.escapeHtml(item.title)}</strong>
+                    <p>${this.escapeHtml(item.detail)}</p>
+                    <span>${this.formatRelativeTime(item.timestamp)}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    recordActivity(title, detail) {
+        this.activityFeed.unshift({
+            title,
+            detail,
+            timestamp: new Date().toISOString()
+        });
+        this.activityFeed = this.activityFeed.slice(0, 8);
+        this.refreshOpsDashboard();
+    }
+
+    formatRelativeTime(timestamp) {
+        if (!timestamp) {
+            return '刚刚';
+        }
+
+        const diff = Date.now() - new Date(timestamp).getTime();
+        const seconds = Math.max(1, Math.floor(diff / 1000));
+
+        if (seconds < 60) {
+            return `${seconds} 秒前`;
+        }
+
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) {
+            return `${minutes} 分钟前`;
+        }
+
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) {
+            return `${hours} 小时前`;
+        }
+
+        const days = Math.floor(hours / 24);
+        return `${days} 天前`;
+    }
+
+    formatDashboardTime(timestamp) {
+        if (!timestamp) {
+            return '暂无';
+        }
+
+        const date = new Date(timestamp);
+        if (Number.isNaN(date.getTime())) {
+            return '暂无';
+        }
+
+        return date.toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    shortSessionId(sessionId) {
+        if (!sessionId) {
+            return '未知会话';
+        }
+
+        return sessionId.length > 18 ? `${sessionId.slice(0, 18)}...` : sessionId;
+    }
+
+    async syncSessionStatus({ silent = false } = {}) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/chat/session/${encodeURIComponent(this.sessionId)}`);
+            if (!response.ok) {
+                throw new Error(`HTTP错误: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (result.code === 200 && result.data) {
+                this.serverSessionState = {
+                    available: true,
+                    status: '已同步',
+                    messagePairCount: result.data.messagePairCount || 0,
+                    updateTime: result.data.updateTime || result.data.createTime || null
+                };
+
+                if (!silent) {
+                    this.recordActivity('服务端会话已同步', `当前已沉淀 ${this.serverSessionState.messagePairCount} 轮上下文`);
+                }
+            } else {
+                this.serverSessionState = {
+                    available: false,
+                    status: '未建立',
+                    messagePairCount: 0,
+                    updateTime: null
+                };
+            }
+        } catch (error) {
+            console.warn('同步服务端会话状态失败:', error);
+            this.serverSessionState = {
+                available: false,
+                status: '暂不可用',
+                messagePairCount: 0,
+                updateTime: null
+            };
+        }
+
+        this.refreshOpsDashboard();
     }
     
     // 渲染历史对话列表
@@ -453,6 +751,8 @@ class AeroFlowSentinelApp {
         // 更新UI
         this.checkAndSetCentered();
         this.renderChatHistory();
+        this.recordActivity('加载历史会话', `载入 ${history.title}`);
+        this.syncSessionStatus({ silent: true });
     }
     
     // 删除历史对话
@@ -460,6 +760,7 @@ class AeroFlowSentinelApp {
         this.chatHistories = this.chatHistories.filter(h => h.id !== historyId);
         this.saveChatHistories();
         this.renderChatHistory();
+        this.recordActivity('删除历史会话', `删除 ${this.shortSessionId(historyId)}`);
         
         // 如果删除的是当前对话，清空当前对话
         if (this.sessionId === historyId) {
@@ -469,6 +770,7 @@ class AeroFlowSentinelApp {
             }
             this.sessionId = this.generateSessionId();
             this.checkAndSetCentered();
+            this.syncSessionStatus({ silent: true });
         }
     }
 
@@ -493,7 +795,7 @@ class AeroFlowSentinelApp {
     }
 
     // 选择模式
-    selectMode(mode) {
+    selectMode(mode, silent = false) {
         if (this.isStreaming) {
             this.showNotification('请等待当前对话完成后再切换模式', 'warning');
             return;
@@ -507,7 +809,11 @@ class AeroFlowSentinelApp {
             'stream': '流式'
         };
         
-        this.showNotification(`已切换到${modeNames[mode]}模式`, 'info');
+        this.recordActivity('切换对话模式', `已切换到${modeNames[mode]}模式`);
+
+        if (!silent) {
+            this.showNotification(`已切换到${modeNames[mode]}模式`, 'info');
+        }
     }
 
     // 更新UI
@@ -542,6 +848,8 @@ class AeroFlowSentinelApp {
             this.messageInput.disabled = this.isStreaming;
             this.messageInput.placeholder = '询问航班搜索、预订出票、退改签或链路稳定性问题';
         }
+
+        this.refreshOpsDashboard();
     }
 
     // 生成随机会话ID
@@ -568,6 +876,7 @@ class AeroFlowSentinelApp {
 
         // 显示用户消息
         this.addMessage('user', message);
+        this.recordActivity('发送提问', message.length > 36 ? `${message.slice(0, 36)}...` : message);
         
         // 清空输入框
         if (this.messageInput) {
@@ -637,6 +946,8 @@ class AeroFlowSentinelApp {
                     // 成功：添加实际响应消息（即使 answer 为空也显示）
                     const answer = chatResponse.answer || '（无回复内容）';
                     this.addMessage('assistant', answer);
+                    this.recordActivity('快速问答完成', `收到 ${answer.length} 字回答`);
+                    await this.syncSessionStatus({ silent: true });
                 } else if (chatResponse && chatResponse.errorMessage) {
                     // 业务错误
                     throw new Error(chatResponse.errorMessage);
@@ -644,6 +955,8 @@ class AeroFlowSentinelApp {
                     // 兜底：尝试显示任何可用内容
                     const fallbackAnswer = chatResponse?.answer || chatResponse?.errorMessage || '服务返回了空内容';
                     this.addMessage('assistant', fallbackAnswer);
+                    this.recordActivity('快速问答完成', '收到兜底响应内容');
+                    await this.syncSessionStatus({ silent: true });
                 }
             } else {
                 // HTTP 成功但业务失败
@@ -661,6 +974,7 @@ class AeroFlowSentinelApp {
     // 发送流式消息
     async sendStreamMessage(message) {
         try {
+            this.recordActivity('流式问答启动', '已进入 SSE 增量返回模式');
             const response = await fetch(`${this.apiBaseUrl}/chat_stream`, {
                 method: 'POST',
                 headers: {
@@ -960,6 +1274,8 @@ class AeroFlowSentinelApp {
                 content: fullResponse,
                 timestamp: new Date().toISOString()
             });
+            this.recordActivity('流式问答完成', `累计收到 ${fullResponse.length} 字回答`);
+            this.syncSessionStatus({ silent: true });
             // 如果当前对话是从历史记录加载的，更新历史记录
             if (this.isCurrentChatFromHistory) {
                 this.updateCurrentChatHistory();
@@ -1072,6 +1388,7 @@ class AeroFlowSentinelApp {
                 // 在聊天界面显示上传成功消息
                 const successMessage = `${file.name} 上传到知识库成功`;
                 this.addMessage('assistant', successMessage, false, true);
+                this.recordActivity('知识文档已上传', file.name);
             } else {
                 throw new Error(data.message || '上传失败');
             }
@@ -1356,6 +1673,8 @@ class AeroFlowSentinelApp {
             content: response,
             timestamp: new Date().toISOString()
         });
+        this.recordActivity('巡检报告已生成', `报告长度 ${response.length} 字`);
+        this.syncSessionStatus({ silent: true });
         
         this.scrollToBottom();
         return messageElement;
@@ -1452,6 +1771,7 @@ class AeroFlowSentinelApp {
         // 添加"分析中..."的消息（带旋转动画）
         const loadingMessage = this.addLoadingMessage('分析中...');
         this.currentAIOpsMessage = loadingMessage; // 保存消息引用用于后续更新
+        this.recordActivity('发起链路巡检', '启动 Supervisor-Planner-Executor 多 Agent 流程');
         
         // 设置发送状态
         this.isStreaming = true;

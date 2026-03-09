@@ -47,9 +47,6 @@ logs/
 ### Upload Files ###
 uploads/
 
-### Private Docs ###
-docs/
-
 ### Temp Scripts ###
 *.sh
 *.py
