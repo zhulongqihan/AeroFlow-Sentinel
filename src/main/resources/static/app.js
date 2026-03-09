@@ -530,10 +530,13 @@ class AeroFlowSentinelApp {
 
         if (this.messageInput) {
             this.messageInput.value = action.prompt;
+            this.messageInput.focus();
+            this.messageInput.setSelectionRange(this.messageInput.value.length, this.messageInput.value.length);
         }
 
         this.recordActivity('快捷任务', `加载 ${action.title}`);
-        await this.sendMessage();
+        this.focusConversation();
+        this.showNotification('诊断问题已预填，确认后点击发送', 'info');
     }
 
     refreshOpsDashboard() {
