@@ -11,6 +11,12 @@ file:
     path: ./uploads
     allowed-extensions: txt,md
 
+chat:
+  session:
+    persistence-enabled: true
+    persistence-path: ./data/chat-sessions.json
+    max-window-size: 6
+
 milvus:
   enabled: true
   host: localhost
