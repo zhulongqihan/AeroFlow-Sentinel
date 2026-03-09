@@ -1,5 +1,5 @@
-// SuperBizAgent 前端应用
-class SuperBizAgentApp {
+// AeroFlow Sentinel 前端应用
+class AeroFlowSentinelApp {
     constructor() {
         this.apiBaseUrl = `${window.location.origin}/api`;
         this.currentMode = 'quick'; // 'quick' 或 'stream'
@@ -1545,5 +1545,5 @@ document.head.appendChild(style);
 
 // 初始化应用
 document.addEventListener('DOMContentLoaded', () => {
-    new SuperBizAgentApp();
+    new AeroFlowSentinelApp();
 });

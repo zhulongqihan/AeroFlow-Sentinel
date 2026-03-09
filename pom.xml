@@ -11,9 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>org.example</groupId>
-    <artifactId>super-biz-agent</artifactId>
+    <groupId>io.github.zhulongqihan</groupId>
+    <artifactId>aeroflow-sentinel</artifactId>
     <version>1.0-SNAPSHOT</version>
+    <name>AeroFlow Sentinel</name>
+    <description>Flight booking stability AI agent built with Spring Boot and Spring AI Alibaba.</description>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>

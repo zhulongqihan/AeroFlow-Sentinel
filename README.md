@@ -71,7 +71,7 @@ This path triggers a Supervisor-Planner-Executor workflow and returns a flight b
 ## Repo Structure
 
 ```text
-SuperBizAgent-release-2026-01-02/
+aeroflow-sentinel/
 ├── src/main/java/org/example/
 │   ├── controller/
 │   ├── service/
@@ -91,7 +91,7 @@ SuperBizAgent-release-2026-01-02/
 ```
 
 Note:
-The repository branding is AeroFlow Sentinel, while the current Maven artifactId remains super-biz-agent for compatibility with the existing build and deployment flow.
+The repository branding, Maven coordinates, and generated jar name are all aligned to AeroFlow Sentinel.
 
 ## APIs
 
@@ -150,14 +150,14 @@ mvn clean package -DskipTests
 ### Run Demo Profile
 
 ```bash
-java -jar target/super-biz-agent-1.0-SNAPSHOT.jar --spring.profiles.active=demo
+java -jar target/aeroflow-sentinel-1.0-SNAPSHOT.jar --spring.profiles.active=demo
 ```
 
 ### Optional Full Mode
 
 ```bash
 docker compose up -d -f vector-database.yml
-java -jar target/super-biz-agent-1.0-SNAPSHOT.jar
+java -jar target/aeroflow-sentinel-1.0-SNAPSHOT.jar
 ```
 
 ## Example Requests
