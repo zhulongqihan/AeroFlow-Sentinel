@@ -20,7 +20,7 @@ class AeroFlowSentinelApp {
                 key: 'search-latency',
                 title: '搜索报价波动诊断',
                 description: '快速定位搜索超时、报价抖动和供应商返回异常。',
-                badge: '快速问答',
+                badge: '快捷诊断',
                 mode: 'quick',
                 prompt: '请按航旅值班排障视角，诊断“航班搜索 RT 飙升且报价成功率下降”时应先检查哪些指标、日志和降级策略。'
             },
@@ -28,7 +28,7 @@ class AeroFlowSentinelApp {
                 key: 'booking-failure',
                 title: '下单创建失败排查',
                 description: '演示从订单创建失败切入的诊断思路和证据路径。',
-                badge: '流式分析',
+                badge: '持续诊断',
                 mode: 'stream',
                 prompt: '请流式分析“订单创建失败率升高”场景，按接口、库存、幂等、支付前置校验四个方向给出排查顺序。'
             },
@@ -36,7 +36,7 @@ class AeroFlowSentinelApp {
                 key: 'ticket-delay',
                 title: '支付出票延迟分析',
                 description: '演示对支付成功但出票缓慢的链路分段排查。',
-                badge: '快速问答',
+                badge: '快捷诊断',
                 mode: 'quick',
                 prompt: '如果出现“支付成功但出票延迟明显升高”，请结合航旅链路拆出可能根因、关键日志位点和应急动作。'
             },
@@ -44,7 +44,7 @@ class AeroFlowSentinelApp {
                 key: 'refund-backlog',
                 title: '退改签积压处置',
                 description: '突出履约链路与人工兜底策略的结合。',
-                badge: '流式分析',
+                badge: '持续诊断',
                 mode: 'stream',
                 prompt: '请作为航旅稳定性值班助手，分析“退改签工单积压”场景，并区分系统瓶颈、人工审核瓶颈和供应商瓶颈。'
             },
@@ -52,7 +52,7 @@ class AeroFlowSentinelApp {
                 key: 'flight-guard',
                 title: '一键链路巡检',
                 description: '直接触发 Supervisor-Planner-Executor 多 Agent 巡检流程。',
-                badge: '多 Agent',
+                badge: '自动巡检',
                 action: 'aiops'
             }
         ];
@@ -64,7 +64,7 @@ class AeroFlowSentinelApp {
         this.checkAndSetCentered();
         this.renderChatHistory();
         this.renderQuickActions();
-        this.recordActivity('系统就绪', '值班驾驶舱已加载，可以直接发起问答或巡检');
+        this.recordActivity('系统就绪', '运行看板已加载，可发起诊断问答或链路巡检');
         this.refreshOpsDashboard();
         this.syncSessionStatus({ silent: true });
     }
@@ -166,6 +166,9 @@ class AeroFlowSentinelApp {
         this.chatMessages = document.getElementById('chatMessages');
         this.loadingOverlay = document.getElementById('loadingOverlay');
         this.chatContainer = document.querySelector('.chat-container');
+        this.chatInputContainer = document.querySelector('.chat-input-container');
+        this.mainContent = document.querySelector('.main-content');
+        this.opsDashboard = document.getElementById('opsDashboard');
         this.welcomeGreeting = document.getElementById('welcomeGreeting');
         this.chatHistoryList = document.getElementById('chatHistoryList');
         this.quickActionsGrid = document.getElementById('quickActionsGrid');
@@ -476,7 +479,7 @@ class AeroFlowSentinelApp {
         }
 
         if (action.action === 'aiops') {
-            this.recordActivity('一键演示', `触发场景 ${action.title}`);
+            this.recordActivity('快捷任务', `触发 ${action.title}`);
             await this.triggerAIOps();
             return;
         }
@@ -493,7 +496,7 @@ class AeroFlowSentinelApp {
             this.messageInput.value = action.prompt;
         }
 
-        this.recordActivity('一键演示', `加载场景 ${action.title}`);
+        this.recordActivity('快捷任务', `加载 ${action.title}`);
         await this.sendMessage();
     }
 
@@ -541,7 +544,7 @@ class AeroFlowSentinelApp {
         if (this.dashboardActionMeta) {
             this.dashboardActionMeta.textContent = latestActivity
                 ? `${latestActivity.detail} · ${this.formatRelativeTime(latestActivity.timestamp)}`
-                : '点击下方场景可一键演示';
+                : '可从下方任务卡片发起快捷诊断';
         }
 
         this.renderActivityTimeline();
@@ -553,7 +556,7 @@ class AeroFlowSentinelApp {
         }
 
         if (this.activityFeed.length === 0) {
-            this.activityTimeline.innerHTML = '<div class="timeline-empty">暂无操作记录，建议先点击一个一键演示场景。</div>';
+            this.activityTimeline.innerHTML = '<div class="timeline-empty">暂无操作记录，可先选择一个快捷诊断任务或直接输入问题。</div>';
             return;
         }
 
@@ -648,7 +651,7 @@ class AeroFlowSentinelApp {
                 };
 
                 if (!silent) {
-                    this.recordActivity('服务端会话已同步', `当前已沉淀 ${this.serverSessionState.messagePairCount} 轮上下文`);
+                    this.recordActivity('会话已同步', `服务端已沉淀 ${this.serverSessionState.messagePairCount} 轮上下文`);
                 }
             } else {
                 this.serverSessionState = {
@@ -852,6 +855,22 @@ class AeroFlowSentinelApp {
         this.refreshOpsDashboard();
     }
 
+    focusConversation() {
+        if (this.mainContent) {
+            this.mainContent.scrollTo({
+                top: this.mainContent.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        if (this.chatInputContainer) {
+            this.chatInputContainer.scrollIntoView({
+                behavior: 'smooth',
+                block: 'end'
+            });
+        }
+    }
+
     // 生成随机会话ID
     generateSessionId() {
         return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
@@ -877,6 +896,7 @@ class AeroFlowSentinelApp {
         // 显示用户消息
         this.addMessage('user', message);
         this.recordActivity('发送提问', message.length > 36 ? `${message.slice(0, 36)}...` : message);
+        this.focusConversation();
         
         // 清空输入框
         if (this.messageInput) {
@@ -1243,8 +1263,15 @@ class AeroFlowSentinelApp {
             const hasMessages = this.chatMessages.querySelectorAll('.message').length > 0;
             if (!hasMessages) {
                 this.chatContainer.classList.add('centered');
+                if (this.opsDashboard) {
+                    this.opsDashboard.classList.remove('compact');
+                }
             } else {
                 this.chatContainer.classList.remove('centered');
+                if (this.opsDashboard) {
+                    this.opsDashboard.classList.add('compact');
+                }
+                this.focusConversation();
             }
         }
     }
@@ -1253,6 +1280,10 @@ class AeroFlowSentinelApp {
     scrollToBottom() {
         if (this.chatMessages) {
             this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+        }
+
+        if (this.mainContent) {
+            this.mainContent.scrollTop = this.mainContent.scrollHeight;
         }
     }
 
@@ -1771,7 +1802,8 @@ class AeroFlowSentinelApp {
         // 添加"分析中..."的消息（带旋转动画）
         const loadingMessage = this.addLoadingMessage('分析中...');
         this.currentAIOpsMessage = loadingMessage; // 保存消息引用用于后续更新
-        this.recordActivity('发起链路巡检', '启动 Supervisor-Planner-Executor 多 Agent 流程');
+        this.recordActivity('发起链路巡检', '启动 Supervisor-Planner-Executor 多 Agent 巡检流程');
+        this.focusConversation();
         
         // 设置发送状态
         this.isStreaming = true;

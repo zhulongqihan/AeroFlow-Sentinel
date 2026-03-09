@@ -52,9 +52,9 @@
             <section class="ops-dashboard" id="opsDashboard">
                 <div class="ops-dashboard-hero">
                     <div class="ops-dashboard-copy">
-                        <span class="ops-dashboard-kicker">AeroFlow Sentinel 值班驾驶舱</span>
-                        <h1>让面试官一眼看到这个 Agent 能诊断什么、记住什么、如何演示。</h1>
-                        <p>这里直接展示当前会话模式、服务端记忆状态、本地对话资产和一键演示场景。无需先提问，就能看出这是一个面向航旅预订链路稳定性的工程化系统。</p>
+                        <span class="ops-dashboard-kicker">AeroFlow Sentinel 运行看板</span>
+                        <h1>今日航旅预订链路运行总览</h1>
+                        <p>聚合搜索、下单、出票、退改签与供应商网关相关诊断入口，支持值班问答、链路巡检和会话续查，帮助快速收敛风险定位路径。</p>
                     </div>
                     <div class="ops-capability-strip">
                         <span class="capability-pill">搜索与报价异常</span>
@@ -82,9 +82,9 @@
                         <span class="metric-meta" id="dashboardHistoryMeta">浏览器侧快速回看</span>
                     </article>
                     <article class="ops-metric-card accent-card">
-                        <span class="metric-label">最近动作</span>
+                        <span class="metric-label">最新处置</span>
                         <strong class="metric-value" id="dashboardActionValue">等待操作</strong>
-                        <span class="metric-meta" id="dashboardActionMeta">点击下方场景可一键演示</span>
+                        <span class="metric-meta" id="dashboardActionMeta">可从下方任务卡片发起快捷诊断</span>
                     </article>
                 </div>
 
@@ -92,8 +92,8 @@
                     <section class="ops-panel">
                         <div class="panel-header">
                             <div>
-                                <h2>一键演示场景</h2>
-                                <p>每个卡片都会自动切换合适模式，并直接发起问答或巡检。</p>
+                                <h2>快捷诊断任务</h2>
+                                <p>预置高频值班场景，点击后会自动切换合适模式并开始诊断。</p>
                             </div>
                         </div>
                         <div class="quick-actions-grid" id="quickActionsGrid"></div>
@@ -102,8 +102,8 @@
                     <section class="ops-panel ops-panel-timeline">
                         <div class="panel-header">
                             <div>
-                                <h2>最近操作时间线</h2>
-                                <p>帮助现场讲解“用户动作 -> Agent 行为 -> 系统反馈”的闭环。</p>
+                                <h2>最新处置动态</h2>
+                                <p>记录最近会话切换、诊断触发和结果回写，便于快速回看处置轨迹。</p>
                             </div>
                         </div>
                         <div class="activity-timeline" id="activityTimeline"></div>
