@@ -54,3 +54,9 @@ uploads/
 ### docker
 /volumes
 /server.pid
+
+# Local interview notes and claim boundaries
+/docs/internal/
+
+# Playwright session snapshots and console artifacts
+/.playwright-cli/

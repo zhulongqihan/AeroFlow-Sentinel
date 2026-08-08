@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>航旅预订链路稳定性 Agent</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=20260808-v3">
     <!-- Markdown 渲染库 -->
     <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
     <!-- 代码高亮库（可选） -->
@@ -111,6 +111,103 @@
                             <div class="activity-timeline" id="activityTimeline"></div>
                         </section>
                     </div>
+
+                    <section class="agent-runtime-console" id="agentRuntimeConsole">
+                        <div class="runtime-console-header">
+                            <div>
+                                <span class="runtime-kicker">Agent Runtime</span>
+                                <h2>Graph-driven Evidence-first 巡检</h2>
+                                <p>以运行状态、证据引用和验证轨迹为中心，实时回放一次航旅链路风险研判。</p>
+                            </div>
+                            <div class="runtime-mode-switch" role="group" aria-label="巡检模式">
+                                <button class="runtime-mode-btn active" id="agentRuntimeModeBtn" type="button">Agent Runtime</button>
+                                <button class="runtime-mode-btn" id="legacyAIOpsModeBtn" type="button">传统巡检</button>
+                            </div>
+                        </div>
+
+                        <div class="runtime-input-grid">
+                            <label>
+                                <span>场景</span>
+                                <select id="agentScenarioInput">
+                                    <option value="flight-search">航班搜索与报价</option>
+                                    <option value="booking-creation">订单创建</option>
+                                    <option value="ticketing-delay">支付与出票</option>
+                                    <option value="refund-backlog">退改签履约</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>航线</span>
+                                <input id="agentRouteInput" value="SHA-PEK" maxlength="32">
+                            </label>
+                            <label>
+                                <span>时间窗口</span>
+                                <select id="agentTimeRangeInput">
+                                    <option value="15m">近 15 分钟</option>
+                                    <option value="30m">近 30 分钟</option>
+                                    <option value="1h">近 1 小时</option>
+                                </select>
+                            </label>
+                            <label>
+                                <span>严重级别</span>
+                                <select id="agentSeverityInput">
+                                    <option value="P1">P1 高优先级</option>
+                                    <option value="P2">P2 常规风险</option>
+                                </select>
+                            </label>
+                            <button class="runtime-run-btn" id="agentRuntimeRunBtn" type="button">
+                                <span>运行 Agent</span>
+                            </button>
+                        </div>
+
+                        <div class="runtime-summary-bar">
+                            <span class="runtime-status-dot" id="agentRuntimeStatusDot"></span>
+                            <strong id="agentRuntimeStatus">等待运行</strong>
+                            <span id="agentRuntimeRunId">Run ID 未生成</span>
+                            <span id="agentRuntimePolicy">Policy Gate: -</span>
+                            <span id="agentRuntimeRounds">验证轮次: 0</span>
+                            <span id="agentRuntimeEvaluation">Trace Eval: -</span>
+                        </div>
+
+                        <div class="runtime-grid">
+                            <section class="runtime-card runtime-trace-card">
+                                <div class="runtime-card-heading">
+                                    <h3>Graph Trace</h3>
+                                    <span>Node / Event</span>
+                                </div>
+                                <div class="runtime-trace-list" id="agentRuntimeTraceList">
+                                    <div class="runtime-empty">运行后显示节点执行轨迹</div>
+                                </div>
+                            </section>
+                            <section class="runtime-card">
+                                <div class="runtime-card-heading">
+                                    <h3>Evidence</h3>
+                                    <span id="agentRuntimeEvidenceCount">0 sources</span>
+                                </div>
+                                <div class="runtime-evidence-list" id="agentRuntimeEvidenceList">
+                                    <div class="runtime-empty">等待指标、日志和知识库证据</div>
+                                </div>
+                            </section>
+                            <section class="runtime-card">
+                                <div class="runtime-card-heading">
+                                    <h3>Risk Findings</h3>
+                                    <span id="agentRuntimeFindingCount">0 findings</span>
+                                </div>
+                                <div class="runtime-finding-list" id="agentRuntimeFindingList">
+                                    <div class="runtime-empty">等待验证结论</div>
+                                </div>
+                            </section>
+                        </div>
+
+                        <section class="runtime-report-card">
+                            <div class="runtime-card-heading">
+                                <h3>Report Artifact</h3>
+                                <button class="runtime-replay-btn" id="agentRuntimeReplayBtn" type="button" disabled>回放 Run</button>
+                            </div>
+                            <div class="runtime-report-content" id="agentRuntimeReportContent">
+                                <div class="runtime-empty">完成一次运行后生成结构化 Markdown 报告</div>
+                            </div>
+                        </section>
+                    </section>
                 </section>
             </section>
 
@@ -210,6 +307,6 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=20260808-v3"></script>
 </body>
 </html>

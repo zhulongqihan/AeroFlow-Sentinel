@@ -21,3 +21,8 @@ prometheus:
 
 cls:
   mock-enabled: true
+
+agent:
+  v2:
+    max-verification-rounds: 2
+    model-synthesis-enabled: false

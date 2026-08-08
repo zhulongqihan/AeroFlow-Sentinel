@@ -16,6 +16,15 @@ class AeroFlowSentinelApp {
             updateTime: null
         };
         this.activityFeed = [];
+        this.agentRuntimeState = {
+            running: false,
+            runId: null,
+            status: 'IDLE',
+            events: [],
+            result: null,
+            evaluation: null,
+            report: ''
+        };
         this.quickActions = [
             {
                 key: 'search-latency',
@@ -55,6 +64,13 @@ class AeroFlowSentinelApp {
                 description: '直接触发 Supervisor-Planner-Executor 多 Agent 巡检流程。',
                 badge: '自动巡检',
                 action: 'aiops'
+            },
+            {
+                key: 'agent-runtime',
+                title: 'Agent Runtime 巡检',
+                description: '回放 Graph 节点、证据来源和有上限验证循环。',
+                badge: 'Runtime',
+                action: 'agent-runtime'
             }
         ];
         
@@ -186,6 +202,29 @@ class AeroFlowSentinelApp {
         this.dashboardHistoryMeta = document.getElementById('dashboardHistoryMeta');
         this.dashboardActionValue = document.getElementById('dashboardActionValue');
         this.dashboardActionMeta = document.getElementById('dashboardActionMeta');
+
+        // Agent Runtime 控制台
+        this.agentRuntimeConsole = document.getElementById('agentRuntimeConsole');
+        this.agentRuntimeModeBtn = document.getElementById('agentRuntimeModeBtn');
+        this.legacyAIOpsModeBtn = document.getElementById('legacyAIOpsModeBtn');
+        this.agentRuntimeRunBtn = document.getElementById('agentRuntimeRunBtn');
+        this.agentRuntimeReplayBtn = document.getElementById('agentRuntimeReplayBtn');
+        this.agentScenarioInput = document.getElementById('agentScenarioInput');
+        this.agentRouteInput = document.getElementById('agentRouteInput');
+        this.agentTimeRangeInput = document.getElementById('agentTimeRangeInput');
+        this.agentSeverityInput = document.getElementById('agentSeverityInput');
+        this.agentRuntimeStatusDot = document.getElementById('agentRuntimeStatusDot');
+        this.agentRuntimeStatus = document.getElementById('agentRuntimeStatus');
+        this.agentRuntimeRunId = document.getElementById('agentRuntimeRunId');
+        this.agentRuntimePolicy = document.getElementById('agentRuntimePolicy');
+        this.agentRuntimeRounds = document.getElementById('agentRuntimeRounds');
+        this.agentRuntimeEvaluation = document.getElementById('agentRuntimeEvaluation');
+        this.agentRuntimeTraceList = document.getElementById('agentRuntimeTraceList');
+        this.agentRuntimeEvidenceList = document.getElementById('agentRuntimeEvidenceList');
+        this.agentRuntimeFindingList = document.getElementById('agentRuntimeFindingList');
+        this.agentRuntimeEvidenceCount = document.getElementById('agentRuntimeEvidenceCount');
+        this.agentRuntimeFindingCount = document.getElementById('agentRuntimeFindingCount');
+        this.agentRuntimeReportContent = document.getElementById('agentRuntimeReportContent');
         
         // 初始化时检查是否需要居中
         this.checkAndSetCentered();
@@ -209,6 +248,19 @@ class AeroFlowSentinelApp {
         // 链路巡检按钮
         if (this.aiOpsSidebarBtn) {
             this.aiOpsSidebarBtn.addEventListener('click', () => this.triggerAIOps());
+        }
+
+        if (this.agentRuntimeRunBtn) {
+            this.agentRuntimeRunBtn.addEventListener('click', () => this.triggerAgentRuntime());
+        }
+        if (this.agentRuntimeModeBtn) {
+            this.agentRuntimeModeBtn.addEventListener('click', () => this.openAgentRuntimeConsole());
+        }
+        if (this.legacyAIOpsModeBtn) {
+            this.legacyAIOpsModeBtn.addEventListener('click', () => this.triggerAIOps());
+        }
+        if (this.agentRuntimeReplayBtn) {
+            this.agentRuntimeReplayBtn.addEventListener('click', () => this.replayAgentRuntime());
         }
         
         // 模式选择下拉菜单
@@ -516,6 +568,13 @@ class AeroFlowSentinelApp {
             this.recordActivity('快捷任务', `触发 ${action.title}`);
             this.switchPage('workspace');
             await this.triggerAIOps();
+            return;
+        }
+
+        if (action.action === 'agent-runtime') {
+            this.recordActivity('快捷任务', `触发 ${action.title}`);
+            this.openAgentRuntimeConsole();
+            await this.triggerAgentRuntime();
             return;
         }
 
@@ -1823,6 +1882,274 @@ class AeroFlowSentinelApp {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    openAgentRuntimeConsole() {
+        this.switchPage('overview');
+        if (this.agentRuntimeConsole) {
+            this.agentRuntimeConsole.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    resetAgentRuntimeConsole() {
+        this.agentRuntimeState = {
+            running: false,
+            runId: null,
+            status: 'IDLE',
+            events: [],
+            result: null,
+            evaluation: null,
+            report: ''
+        };
+        this.renderAgentRuntime();
+    }
+
+    async triggerAgentRuntime() {
+        if (this.agentRuntimeState.running) {
+            this.showNotification('请等待当前 Agent Run 完成', 'warning');
+            return;
+        }
+
+        this.openAgentRuntimeConsole();
+        this.resetAgentRuntimeConsole();
+        this.agentRuntimeState.running = true;
+        this.agentRuntimeState.status = 'RUNNING';
+        this.renderAgentRuntime();
+        if (this.agentRuntimeRunBtn) this.agentRuntimeRunBtn.disabled = true;
+
+        const request = {
+            scenario: this.agentScenarioInput?.value || 'flight-search',
+            route: this.agentRouteInput?.value || 'SHA-PEK',
+            timeRange: this.agentTimeRangeInput?.value || '15m',
+            severityHint: this.agentSeverityInput?.value || 'P1'
+        };
+        this.recordActivity('Agent Runtime 启动', `${request.scenario} / ${request.route} / ${request.timeRange}`);
+        this.dashboardActionValue.textContent = 'Agent 运行中';
+        this.dashboardActionMeta.textContent = 'Graph 节点正在采集证据并验证风险假设';
+
+        try {
+            await this.sendAgentRuntimeRequest(request);
+            if (this.agentRuntimeState.runId) {
+                await this.loadAgentRun(this.agentRuntimeState.runId);
+            }
+            this.recordActivity('Agent Runtime 完成', `Run ${this.shortRunId(this.agentRuntimeState.runId)}`);
+        } catch (error) {
+            this.agentRuntimeState.status = 'FAILED';
+            this.agentRuntimeState.events.push({
+                eventType: 'run.failed', node: 'runtime', status: 'FAILED', message: error.message
+            });
+            this.renderAgentRuntime();
+            this.showNotification('Agent Runtime 执行失败: ' + error.message, 'error');
+        } finally {
+            this.agentRuntimeState.running = false;
+            if (this.agentRuntimeRunBtn) this.agentRuntimeRunBtn.disabled = false;
+            this.renderAgentRuntime();
+        }
+    }
+
+    async sendAgentRuntimeRequest(request) {
+        const response = await fetch(`${this.apiBaseUrl}/v2/flight_guard_stream`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'text/event-stream'
+            },
+            body: JSON.stringify(request)
+        });
+        if (!response.ok || !response.body) {
+            throw new Error(`Agent Runtime HTTP ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let eventName = 'message';
+        let dataLines = [];
+
+        const flush = async () => {
+            if (dataLines.length === 0) return;
+            const rawData = dataLines.join('\n');
+            dataLines = [];
+            try {
+                const payload = JSON.parse(rawData);
+                await this.handleAgentRuntimeEvent(eventName, payload);
+            } catch (error) {
+                console.warn('[Agent Runtime SSE] 无法解析事件:', rawData, error);
+            }
+            eventName = 'message';
+        };
+
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split(/\r?\n/);
+                buffer = lines.pop() || '';
+                for (const line of lines) {
+                    if (line === '') {
+                        await flush();
+                    } else if (line.startsWith('event:')) {
+                        eventName = line.substring(6).trim();
+                    } else if (line.startsWith('data:')) {
+                        dataLines.push(line.substring(5).trim());
+                    }
+                }
+            }
+            buffer += decoder.decode();
+            if (buffer.trim()) {
+                const lines = buffer.split(/\r?\n/);
+                for (const line of lines) {
+                    if (line.startsWith('data:')) dataLines.push(line.substring(5).trim());
+                }
+            }
+            await flush();
+        } finally {
+            reader.releaseLock();
+        }
+    }
+
+    async handleAgentRuntimeEvent(eventName, payload) {
+        const event = {
+            ...payload,
+            eventType: payload.eventType || eventName,
+            node: payload.node || 'runtime'
+        };
+        this.agentRuntimeState.events.push(event);
+        if (event.runId && event.runId !== 'unknown') {
+            this.agentRuntimeState.runId = event.runId;
+        }
+        if (event.status) {
+            this.agentRuntimeState.status = event.status;
+        }
+        if (event.eventType === 'report.ready' && event.message) {
+            this.agentRuntimeState.report = event.message;
+        }
+        this.renderAgentRuntime();
+
+        if (event.eventType === 'run.completed' && event.runId) {
+            await this.loadAgentRun(event.runId);
+        }
+    }
+
+    async loadAgentRun(runId) {
+        if (!runId) return;
+        const response = await fetch(`${this.apiBaseUrl}/v2/runs/${encodeURIComponent(runId)}`);
+        if (response.status === 404) return;
+        if (!response.ok) throw new Error(`Run 回放 HTTP ${response.status}`);
+        this.agentRuntimeState.result = await response.json();
+        this.agentRuntimeState.status = this.agentRuntimeState.result.status || this.agentRuntimeState.status;
+        this.agentRuntimeState.report = this.agentRuntimeState.result.markdownReport || this.agentRuntimeState.report;
+        const evaluationResponse = await fetch(`${this.apiBaseUrl}/v2/runs/${encodeURIComponent(runId)}/evaluation`);
+        if (evaluationResponse.ok) {
+            this.agentRuntimeState.evaluation = await evaluationResponse.json();
+        }
+        this.renderAgentRuntime();
+    }
+
+    replayAgentRuntime() {
+        if (!this.agentRuntimeState.runId) return;
+        this.loadAgentRun(this.agentRuntimeState.runId)
+            .then(() => this.showNotification('Run 回放完成', 'success'))
+            .catch(error => this.showNotification('Run 回放失败: ' + error.message, 'error'));
+    }
+
+    renderAgentRuntime() {
+        if (!this.agentRuntimeStatus) return;
+        const state = this.agentRuntimeState;
+        const result = state.result;
+        const statusText = {
+            IDLE: '等待运行',
+            RUNNING: '运行中',
+            ACCEPTED: '已接收',
+            COMPLETED: '节点完成',
+            SUCCEEDED: '运行成功',
+            FAILED: '运行失败',
+            VERIFIED: '已验证',
+            NEEDS_REVIEW: '待确认'
+        }[state.status] || state.status;
+        this.agentRuntimeStatus.textContent = statusText;
+        this.agentRuntimeRunId.textContent = state.runId ? `Run ${this.shortRunId(state.runId)}` : 'Run ID 未生成';
+        this.agentRuntimePolicy.textContent = `Policy Gate: ${result?.policyStatus || '-'}`;
+        this.agentRuntimeRounds.textContent = `验证轮次: ${result?.verificationRounds || 0}`;
+        if (this.agentRuntimeEvaluation) {
+            const evaluation = state.evaluation;
+            this.agentRuntimeEvaluation.textContent = evaluation
+                ? `Trace Eval: ${evaluation.passed ? 'PASS' : 'REVIEW'} ${evaluation.score}`
+                : 'Trace Eval: -';
+        }
+        this.agentRuntimeStatusDot.className = 'runtime-status-dot ' + (
+            state.status === 'FAILED' ? 'failed' : (state.running ? 'running' : (state.status === 'SUCCEEDED' ? 'success' : ''))
+        );
+
+        if (this.agentRuntimeReplayBtn) this.agentRuntimeReplayBtn.disabled = !state.runId;
+        this.renderRuntimeTrace(state.events);
+        this.renderRuntimeEvidence(result?.evidence || []);
+        this.renderRuntimeFindings(result?.findings || []);
+        this.renderRuntimeReport(state.report);
+    }
+
+    renderRuntimeTrace(events) {
+        if (!this.agentRuntimeTraceList) return;
+        if (!events.length) {
+            this.agentRuntimeTraceList.innerHTML = '<div class="runtime-empty">运行后显示节点执行轨迹</div>';
+            return;
+        }
+        this.agentRuntimeTraceList.innerHTML = events.map(event => `
+            <div class="runtime-trace-item">
+                <span class="runtime-trace-marker"></span>
+                <div>
+                    <strong>${this.escapeHtml(event.node || 'runtime')} · ${this.escapeHtml(event.status || '')}</strong>
+                    <p>${this.escapeHtml(event.message || event.eventType || '')}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    renderRuntimeEvidence(evidence) {
+        if (!this.agentRuntimeEvidenceList) return;
+        this.agentRuntimeEvidenceCount.textContent = `${evidence.length} sources`;
+        if (!evidence.length) {
+            this.agentRuntimeEvidenceList.innerHTML = '<div class="runtime-empty">等待指标、日志和知识库证据</div>';
+            return;
+        }
+        this.agentRuntimeEvidenceList.innerHTML = evidence.map(item => `
+            <div class="runtime-evidence-item">
+                <strong>${this.escapeHtml(item.id)} · ${this.escapeHtml(item.source)}</strong>
+                <p>${this.escapeHtml(item.content || '')}</p>
+                <div class="runtime-evidence-meta"><span>${this.escapeHtml(item.status)}</span><span>${item.latencyMs} ms</span></div>
+            </div>
+        `).join('');
+    }
+
+    renderRuntimeFindings(findings) {
+        if (!this.agentRuntimeFindingList) return;
+        this.agentRuntimeFindingCount.textContent = `${findings.length} findings`;
+        if (!findings.length) {
+            this.agentRuntimeFindingList.innerHTML = '<div class="runtime-empty">等待验证结论</div>';
+            return;
+        }
+        this.agentRuntimeFindingList.innerHTML = findings.map(item => `
+            <div class="runtime-finding-item ${(item.level || '').toLowerCase()}">
+                <strong>${this.escapeHtml(item.id)} · ${this.escapeHtml(item.level)} · ${this.escapeHtml(item.status)}</strong>
+                <p>${this.escapeHtml(item.summary || '')}</p>
+                <div class="runtime-finding-meta"><span>置信度 ${(Number(item.confidence || 0)).toFixed(2)}</span><span>证据 ${this.escapeHtml((item.evidenceIds || []).join(', '))}</span></div>
+            </div>
+        `).join('');
+    }
+
+    renderRuntimeReport(report) {
+        if (!this.agentRuntimeReportContent) return;
+        if (!report) {
+            this.agentRuntimeReportContent.innerHTML = '<div class="runtime-empty">完成一次运行后生成结构化 Markdown 报告</div>';
+            return;
+        }
+        this.agentRuntimeReportContent.innerHTML = this.renderMarkdown(report);
+        this.highlightCodeBlocks(this.agentRuntimeReportContent);
+    }
+
+    shortRunId(runId) {
+        return runId ? runId.slice(0, 8) : '-';
     }
 
     // 触发航旅链路巡检（点击巡检按钮时直接调用）

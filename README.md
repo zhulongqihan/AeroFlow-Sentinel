@@ -4,7 +4,7 @@
 
 ## 项目简介
 
-AeroFlow Sentinel 是一个基于 Java 17、Spring Boot 和 Spring AI Alibaba 构建的航旅场景 AI Agent 项目，当前聚焦于“航旅预订链路稳定性治理”。
+AeroFlow Sentinel 是一个基于 Java 17、Spring Boot 和 Spring AI Alibaba 构建的 Graph-driven Evidence-first 航旅场景 AI Agent 项目，当前聚焦于“航旅预订链路稳定性治理”。
 
 系统将两类能力整合在同一个工程中：
 
@@ -31,6 +31,8 @@ AeroFlow Sentinel 是一个基于 Java 17、Spring Boot 和 Spring AI Alibaba �
 - 支持工具调用的多轮对话
 - 支持 SSE 流式输出
 - 支持多 Agent 巡检与 Markdown 分析报告输出
+- 支持显式 Graph Runtime、Agent Run State 和有上限 Verification Loop
+- 支持 Evidence-grounded RiskFinding、Context Pack 和 Policy Gate
 - 支持前端值班驾驶舱、一键演示场景和操作时间线展示
 - 支持基于 RAG 的知识检索，以及 Milvus 关闭时的本地 Markdown 兜底检索
 - 支持会话历史窗口控制与本地文件持久化
@@ -49,6 +51,13 @@ AeroFlow Sentinel 是一个基于 Java 17、Spring Boot 和 Spring AI Alibaba �
 ### 巡检层
 
 - POST /api/flight_guard
+
+面向 Agent 前沿能力的 v2 PoC 新增独立入口：
+
+- POST /api/v2/flight_guard
+- POST /api/v2/flight_guard_stream
+
+v2 采用显式 Graph-driven Evidence-first Agent Runtime：通过 Intake、Context Pack、Evidence Fanout、Hypothesis、Verification Loop、Policy Gate 和 Report Projector 节点编排巡检过程，生成带证据引用的结构化风险结论，并通过 SSE 返回 Graph Trace 和 Markdown Artifact。v2 以独立入口运行，保留 v1 兼容接口；当前已在 Demo profile 下完成服务器公网演示，但不代表生产数据源或生产流量切换。详细升级路线见 `docs/16-Agent前沿升级路线与实施计划.md`，版本和简历演进记录见 `docs/17-Agent版本记录与简历演进.md`。
 
 为了兼容旧版前端和历史演示链路，仍保留以下别名路由：
 
@@ -113,6 +122,20 @@ POST /api/chat_stream
 
 ```bash
 POST /api/flight_guard
+POST /api/v2/flight_guard_stream
+GET  /api/v2/runs/{runId}
+GET  /api/v2/runs/{runId}/evaluation
+```
+
+v2 请求示例：
+
+```json
+{
+  "scenario": "flight-search",
+  "route": "SHA-PEK",
+  "timeRange": "15m",
+  "severityHint": "P1"
+}
 ```
 
 ### 文件与会话接口
@@ -204,7 +227,22 @@ curl -X POST http://localhost:9900/api/upload \
 
 当前线上演示地址：
 
-- http://agent.cyruszhang.online
+- https://agent.cyruszhang.online
+
+## Agent Runtime 设计
+
+```text
+Intake -> ContextPack -> EvidenceFanout
+                       -> Metrics / Logs / Knowledge
+       -> Normalize -> Hypothesis -> Bounded Verification Loop
+       -> Policy Gate -> Report Artifact -> SSE Trace / Run Replay
+```
+
+Runtime 将模型结论与系统状态分离：工具结果沉淀为 Evidence，风险判断沉淀为 RiskFinding，Markdown 只是最终展示投影。Demo profile 使用本地 Mock 和知识库 fallback，便于低配环境演示；v1 稳定接口继续保留，v2 通过独立入口提供公网演示。
+
+第三轮迭代增加 Trace-driven Evaluation：对完成态 Run Snapshot 检查核心事件顺序、Evidence 覆盖、Verification 预算、Policy Gate 和报告完整性，并通过 `/api/v2/runs/{runId}/evaluation` 返回可解释评分。
+
+简历精简表述：基于 Java 17 / Spring AI Alibaba 构建航旅 AIOps Agent Runtime，以显式 Graph 编排证据采集；通过 Bounded Verification Loop、Evidence 校验和 Policy Gate 约束结论，并使用 SSE 输出可回放 Trace，补充 Trace-driven Evaluation 校验运行契约。
 
 ## 适用方向
 

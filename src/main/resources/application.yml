@@ -87,3 +87,9 @@ prometheus:
 # CLS 云日志服务配置（航旅预订业务日志）
 cls:
   mock-enabled: false  # 是否启用 Mock 模式（用于测试，设为 true 返回与航旅风险事件关联的模拟日志数据）
+
+# Agent v2 Runtime 配置：默认关闭模型化归因，保证 Demo 无 Key 时仍可完成证据闭环
+agent:
+  v2:
+    max-verification-rounds: 2
+    model-synthesis-enabled: false
