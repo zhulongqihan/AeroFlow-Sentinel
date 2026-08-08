@@ -78,7 +78,7 @@ git push origin main
 ### 1. 上传新 jar
 
 ```bash
-scp target/aeroflow-sentinel-1.0-SNAPSHOT.jar root@118.31.221.81:/home/root/apps/superbizagent/SuperBizAgent-release-2026-01-02/target/
+scp target/aeroflow-sentinel-1.0-SNAPSHOT.jar "${DEPLOY_USER}@${DEPLOY_HOST}:${APP_DIR}/target/"
 ```
 
 ### 2. 停掉旧进程
@@ -117,9 +117,9 @@ echo $! > app.pid
 2. 服务端会话卡片是否会在提问后刷新。
 3. 时间线是否能记录发送提问、模式切换和巡检完成。
 
-## 为什么这份手册对面试也有价值
+## 发布闭环
 
-这份文档能证明你不仅写了功能，还掌握了：
+这份文档覆盖了：
 
 1. 前端静态资源如何随 Spring Boot 一起发布。
 2. GitHub 源码同步和服务器运行制品同步是两套动作。
@@ -127,4 +127,4 @@ echo $! > app.pid
 
 ## 一句话总结
 
-当前 AeroFlow Sentinel 的发布方式虽然轻量，但已经具备“源码同步、制品替换、进程切换、结果验证”的完整上线闭环，足够支撑开源展示和面试演示。
+当前 AeroFlow Sentinel 的发布方式虽然轻量，但已经具备“源码同步、制品替换、进程切换、结果验证”的完整上线闭环。

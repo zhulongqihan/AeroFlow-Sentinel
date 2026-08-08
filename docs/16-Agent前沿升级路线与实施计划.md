@@ -2,13 +2,13 @@
 
 ## 1. 目标和判断
 
-这个项目的面试价值不在于堆叠最新名词，而在于证明一条完整链路：业务事件进入 Agent Runtime，Runtime 受策略约束地调用工具，工具结果形成可追踪证据，系统最后输出结构化风险结论和可回放轨迹。
+这条技术路线的重点不是堆叠名词，而是建立一条完整链路：业务事件进入 Agent Runtime，Runtime 受策略约束地调用工具，工具结果形成可追踪证据，系统最后输出结构化风险结论和可回放轨迹。
 
 当前服务器是 Java 17、约 1.8 GiB 内存的共享 ECS，线上还承载博客 Docker 服务。因此本项目不直接做 Spring Boot 4 或 Spring AI 2 的线上大版本替换。正确的演进方式是保留 v1 稳定演示链路，在同一代码库增加 v2 runtime 边界，先完成最小闭环，再按能力逐步替换内部实现。
 
 ## 2. 能力分层
 
-| 能力 | 当前状态 | 面试口径 |
+| 能力 | 当前状态 | 技术说明 |
 |---|---|---|
 | Supervisor-Planner-Executor | v1 已存在并保持线上运行 | 已有基础多 Agent 协同与单步工具约束 |
 | Evidence-first Agent Runtime | v2 已完成 Graph Runtime，并在 Demo profile 服务器演示 | 指标、日志、知识库并行采集并统一为结构化运行状态 |
@@ -107,24 +107,7 @@ POST /api/v2/flight_guard_stream
 - [A2A Specification](https://github.com/a2aproject/A2A/blob/main/docs/specification.md)：Agent 间发现、任务和 artifact 协作协议。
 - [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/registry/attributes/gen-ai/)：模型、工具和检索的统一观测字段。
 
-## 6. 面试表达
-
-### 90 秒版本
-
-> 我把航旅稳定性排障拆成两条边界：v1 负责兼容原有 Supervisor-Planner-Executor 和线上演示，v2 负责验证 evidence-first Agent Runtime。一次巡检先并行获取指标、日志、知识库证据，再生成带证据引用的结构化 RiskFinding，最后通过 SSE 输出运行轨迹和 Markdown 报告。这样模型不是直接输出不可审计的长文本，而是被限制在证据和 Schema 之内。下一步会把证据节点替换成可恢复 Graph，把本地工具升级为带权限和审计的 MCP Gateway，再通过 A2A 拆分指标、日志和知识 Agent，并用 OpenTelemetry 记录 token、检索和工具延迟。
-
-### 简历增量描述
-
-> 基于 Java 17 / Spring AI Alibaba 构建 Evidence-first Agent Runtime：用显式 Graph 编排 Prometheus、CLS 与知识库证据采集，通过 Bounded Verification Loop、Evidence 校验和 Policy Gate 约束风险结论，并使用 SSE 输出可回放 Trace；补充 Trace-driven Evaluation 校验事件顺序、证据覆盖和运行预算。
-
-### 必须避免的表述
-
-- 不说“线上已经部署 A2A 集群”，当前没有对应的远程 Agent 服务和运行证据。
-- 不说“真实 CLS 已经接通”，当前 demo profile 使用 Mock，真实模式代码仍是预留。
-- 不说“混合检索准确率已经评测到 90%”，除非补充数据集、评测脚本和结果文件。
-- 不说“Spring AI 2 已完成升级”，当前线上基线仍是 Spring Boot 3.2 和 Spring AI Alibaba RC2。
-
-## 7. 发布边界
+## 6. 发布边界
 
 - v2 已通过 Demo profile 部署到共享低内存服务器用于公网演示，但不接管生产流量；v1 兼容接口继续保留。
 - 后续服务器更新继续使用独立 JAR 备份、健康检查和人工回滚，避免改变博客容器与现有 v1 边界。

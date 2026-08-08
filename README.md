@@ -57,7 +57,7 @@ AeroFlow Sentinel 是一个基于 Java 17、Spring Boot 和 Spring AI Alibaba �
 - POST /api/v2/flight_guard
 - POST /api/v2/flight_guard_stream
 
-v2 采用显式 Graph-driven Evidence-first Agent Runtime：通过 Intake、Context Pack、Evidence Fanout、Hypothesis、Verification Loop、Policy Gate 和 Report Projector 节点编排巡检过程，生成带证据引用的结构化风险结论，并通过 SSE 返回 Graph Trace 和 Markdown Artifact。v2 以独立入口运行，保留 v1 兼容接口；当前已在 Demo profile 下完成服务器公网演示，但不代表生产数据源或生产流量切换。详细升级路线见 `docs/16-Agent前沿升级路线与实施计划.md`，版本和简历演进记录见 `docs/17-Agent版本记录与简历演进.md`。
+v2 采用显式 Graph-driven Evidence-first Agent Runtime：通过 Intake、Context Pack、Evidence Fanout、Hypothesis、Verification Loop、Policy Gate 和 Report Projector 节点编排巡检过程，生成带证据引用的结构化风险结论，并通过 SSE 返回 Graph Trace 和 Markdown Artifact。v2 以独立入口运行，保留 v1 兼容接口；当前已在 Demo profile 下完成服务器公网演示，但不代表生产数据源或生产流量切换。详细升级路线和版本边界见 `docs/16-Agent前沿升级路线与实施计划.md`。
 
 为了兼容旧版前端和历史演示链路，仍保留以下别名路由：
 
@@ -241,8 +241,6 @@ Intake -> ContextPack -> EvidenceFanout
 Runtime 将模型结论与系统状态分离：工具结果沉淀为 Evidence，风险判断沉淀为 RiskFinding，Markdown 只是最终展示投影。Demo profile 使用本地 Mock 和知识库 fallback，便于低配环境演示；v1 稳定接口继续保留，v2 通过独立入口提供公网演示。
 
 第三轮迭代增加 Trace-driven Evaluation：对完成态 Run Snapshot 检查核心事件顺序、Evidence 覆盖、Verification 预算、Policy Gate 和报告完整性，并通过 `/api/v2/runs/{runId}/evaluation` 返回可解释评分。
-
-简历精简表述：基于 Java 17 / Spring AI Alibaba 构建航旅 AIOps Agent Runtime，以显式 Graph 编排证据采集；通过 Bounded Verification Loop、Evidence 校验和 Policy Gate 约束结论，并使用 SSE 输出可回放 Trace，补充 Trace-driven Evaluation 校验运行契约。
 
 ## 适用方向
 
