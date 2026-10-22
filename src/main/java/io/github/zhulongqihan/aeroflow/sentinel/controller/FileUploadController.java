@@ -3,6 +3,7 @@ package io.github.zhulongqihan.aeroflow.sentinel.controller;
 import io.github.zhulongqihan.aeroflow.sentinel.config.FileUploadConfig;
 import io.github.zhulongqihan.aeroflow.sentinel.dto.FileUploadRes;
 import io.github.zhulongqihan.aeroflow.sentinel.service.VectorIndexService;
+import io.github.zhulongqihan.aeroflow.sentinel.service.SafeUploadStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -30,6 +30,9 @@ public class FileUploadController {
 
     @Autowired(required = false)
     private VectorIndexService vectorIndexService;
+
+    @Autowired
+    private SafeUploadStorage uploadStorage;
 
     @PostMapping(value = "/api/upload", consumes = "multipart/form-data")
     public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) {
@@ -51,20 +54,9 @@ public class FileUploadController {
         try {
             String uploadPath = fileUploadConfig.getPath();
             Path uploadDir = Paths.get(uploadPath).normalize();
-            if (!Files.exists(uploadDir)) {
-                Files.createDirectories(uploadDir);
-            }
-
-            // 使用原始文件名，而不是UUID，以便实现基于文件名的去重
-            Path filePath = uploadDir.resolve(originalFilename).normalize();
-            
-            // 如果文件已存在，先删除旧文件（实现覆盖更新）
-            if (Files.exists(filePath)) {
-                logger.info("文件已存在，将覆盖: {}", filePath);
-                Files.delete(filePath);
-            }
-            
-            Files.copy(file.getInputStream(), filePath);
+            Path storedPath = uploadStorage.store(uploadDir, originalFilename, file.getInputStream());
+            // Preserve the configured-path identity used by existing index metadata and API clients.
+            Path filePath = uploadDir.resolve(storedPath.getFileName()).normalize();
 
             logger.info("文件上传成功: {}", filePath);
 
@@ -97,6 +89,8 @@ public class FileUploadController {
             
             return ResponseEntity.ok(apiResponse);
 
+        } catch (IllegalArgumentException invalidPath) {
+            return ResponseEntity.badRequest().body("文件名或上传目录不符合安全要求");
         } catch (IOException e) {
             ApiResponse<String> errorResponse = new ApiResponse<>();
             errorResponse.setCode(500);

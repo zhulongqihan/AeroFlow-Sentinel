@@ -10,10 +10,11 @@ import io.github.zhulongqihan.aeroflow.sentinel.agent.runtime.ContextPack;
 import io.github.zhulongqihan.aeroflow.sentinel.agent.runtime.Evidence;
 import io.github.zhulongqihan.aeroflow.sentinel.agent.runtime.RiskFinding;
 import io.github.zhulongqihan.aeroflow.sentinel.agent.runtime.RiskHypothesis;
+import io.github.zhulongqihan.aeroflow.sentinel.agent.runtime.ToolResult;
 import io.github.zhulongqihan.aeroflow.sentinel.agent.tool.InternalDocsTools;
 import io.github.zhulongqihan.aeroflow.sentinel.agent.tool.QueryLogsTools;
 import io.github.zhulongqihan.aeroflow.sentinel.agent.tool.QueryMetricsTools;
-import jakarta.annotation.PreDestroy;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,13 +22,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -49,11 +53,8 @@ public class FlightGuardV2Service {
     private final AgentRunStore agentRunStore;
     private final RiskSynthesisService riskSynthesisService;
     private final int maxVerificationRounds;
-    private final ExecutorService workflowExecutor = Executors.newFixedThreadPool(6, runnable -> {
-        Thread thread = new Thread(runnable, "agent-v2-workflow");
-        thread.setDaemon(true);
-        return thread;
-    });
+    private final AgentExecutionService executionService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public FlightGuardV2Service(
@@ -62,60 +63,79 @@ public class FlightGuardV2Service {
             @Autowired(required = false) QueryLogsTools queryLogsTools,
             AgentRunStore agentRunStore,
             RiskSynthesisService riskSynthesisService,
-            @Value("${agent.v2.max-verification-rounds:2}") int maxVerificationRounds) {
+            @Value("${agent.v2.max-verification-rounds:2}") int maxVerificationRounds,
+            AgentExecutionService executionService) {
         this.queryMetricsTools = queryMetricsTools;
         this.internalDocsTools = internalDocsTools;
         this.queryLogsTools = queryLogsTools;
         this.agentRunStore = agentRunStore;
         this.riskSynthesisService = riskSynthesisService;
         this.maxVerificationRounds = Math.max(1, Math.min(maxVerificationRounds, DEFAULT_MAX_VERIFICATION_ROUNDS));
+        this.executionService = executionService;
     }
 
     public RunHandle prepareRun(AgentRunRequest request, Consumer<AgentRunEvent> eventConsumer) {
         AgentRunState state = new AgentRunState(UUID.randomUUID().toString(),
                 request == null ? AgentRunRequest.defaults() : request);
-        state.attachEventSink(eventConsumer);
-        return new RunHandle(state);
+        RunHandle handle = new RunHandle(state, executionService.runTimeoutMs());
+        state.attachEventSink(event -> {
+            if (!handle.finished.get() && eventConsumer != null) eventConsumer.accept(event);
+        });
+        return handle;
     }
 
     public CompletableFuture<AgentRunResult> executeRun(RunHandle handle) {
-        return CompletableFuture.supplyAsync(() -> execute(handle.state()), workflowExecutor);
+        return executeRun(handle, "run:" + handle.runId());
+    }
+
+    public CompletableFuture<AgentRunResult> executeRun(RunHandle handle, String sessionKey) {
+        AgentExecutionService.Task<AgentRunResult> task = executionService.submitRun(sessionKey, () -> execute(handle));
+        handle.task = task;
+        if (handle.finished.get()) task.cancel();
+        return task.completion().handle((result, failure) -> {
+            handle.finish();
+            if (failure != null) throw new CompletionException(failure);
+            // A cancelled worker must never publish a later successful snapshot.
+            agentRunStore.save(result);
+            return result;
+        });
     }
 
     public AgentRunResult findRun(String runId) {
         return agentRunStore.find(runId);
     }
 
-    private AgentRunResult execute(AgentRunState state) {
+    private AgentRunResult execute(RunHandle handle) {
+        AgentRunState state = handle.state();
         try {
-            AgentGraph graph = buildGraph();
+            handle.checkActive();
+            AgentGraph graph = buildGraph(handle);
             graph.execute(state);
+            handle.checkActive();
             state.status("SUCCEEDED");
             String markdownReport = buildMarkdownReport(state);
             state.record("report.ready", "report-projector", "COMPLETED", "结构化报告投影已准备完成");
             state.record("run.completed", "runtime", "SUCCEEDED",
                     "Agent Run 完成，耗时 " + state.elapsedMs() + " ms");
             AgentRunResult result = toResult(state, markdownReport);
-            agentRunStore.save(result);
             return result;
         } catch (RuntimeException exception) {
             state.status("FAILED");
             state.errorMessage(safeMessage(exception));
-            state.emit("run.failed", state.currentNode(), "FAILED", safeMessage(exception));
             throw exception;
         }
     }
 
-    private AgentGraph buildGraph() {
+    private AgentGraph buildGraph(RunHandle handle) {
         List<AgentNode> nodes = List.of(
-                named("intake", this::intake),
-                named("context-pack", this::buildContextPack),
-                named("evidence-fanout", this::collectEvidence),
-                named("evidence-normalizer", this::normalizeEvidence),
-                named("hypothesis-generator", this::generateHypotheses),
-                named("verification-loop", this::verifyHypotheses),
-                named("policy-gate", this::applyPolicyGate),
-                named("report-projector", state -> {
+                named("intake", handle, this::intake),
+                named("context-pack", handle, this::buildContextPack),
+                named("evidence-fanout", handle, state -> collectEvidence(state, handle)),
+                named("evidence-normalizer", handle, this::normalizeEvidence),
+                named("hypothesis-generator", handle, this::generateHypotheses),
+                named("verification-loop", handle, state -> verifyHypotheses(state, handle)),
+                named("policy-gate", handle, this::applyPolicyGate),
+                named("report-projector", handle, state -> {
                     // 最终报告需要等 Graph 完成后统一投影，避免 SSE 和回放出现重复事件。
                 })
         );
@@ -131,11 +151,13 @@ public class FlightGuardV2Service {
         return new AgentGraph(nodes, edges);
     }
 
-    private AgentNode named(String id, Consumer<AgentRunState> action) {
+    private AgentNode named(String id, RunHandle handle, Consumer<AgentRunState> action) {
         return new AgentNode() {
             @Override
             public void execute(AgentRunState state) {
+                handle.checkActive();
                 action.accept(state);
+                handle.checkActive();
             }
 
             @Override
@@ -167,16 +189,12 @@ public class FlightGuardV2Service {
         state.emit("context.ready", "context-pack", "COMPLETED", "Context Pack 已生成，预算 6000 字符");
     }
 
-    private void collectEvidence(AgentRunState state) {
-        CompletableFuture<Evidence> metricsFuture = CompletableFuture.supplyAsync(
-                () -> collect("metrics", "Prometheus", queryMetricsTools::queryPrometheusAlerts), workflowExecutor);
-        CompletableFuture<Evidence> logsFuture = CompletableFuture.supplyAsync(
-                () -> collect("logs", "CLS", this::queryLogs), workflowExecutor);
-        CompletableFuture<Evidence> docsFuture = CompletableFuture.supplyAsync(
-                () -> collect("knowledge", "KnowledgeBase", () -> internalDocsTools.queryInternalDocs(
-                        "GDS supplier timeout flight search latency incident response")), workflowExecutor);
-
-        CompletableFuture.allOf(metricsFuture, logsFuture, docsFuture).join();
+    private void collectEvidence(AgentRunState state, RunHandle handle) {
+        CompletableFuture<Evidence> metricsFuture = collectAsync(handle, "metrics", "Prometheus", queryMetricsTools::queryPrometheusAlerts);
+        CompletableFuture<Evidence> logsFuture = collectAsync(handle, "logs", "CLS", this::queryLogs);
+        CompletableFuture<Evidence> docsFuture = collectAsync(handle, "knowledge", "KnowledgeBase", () -> internalDocsTools.queryInternalDocs(
+                "GDS supplier timeout flight search latency incident response"));
+        await(CompletableFuture.allOf(metricsFuture, logsFuture, docsFuture), handle);
         state.addEvidence(metricsFuture.join());
         state.addEvidence(logsFuture.join());
         state.addEvidence(docsFuture.join());
@@ -200,6 +218,7 @@ public class FlightGuardV2Service {
 
     private void generateHypotheses(AgentRunState state) {
         String evidenceText = state.evidence().stream()
+                .filter(item -> "SUCCESS".equals(item.status()))
                 .map(Evidence::content)
                 .filter(content -> content != null)
                 .map(content -> content.toLowerCase(Locale.ROOT))
@@ -218,9 +237,10 @@ public class FlightGuardV2Service {
                 "已生成 " + state.hypotheses().size() + " 条带证据引用的风险假设");
     }
 
-    private void verifyHypotheses(AgentRunState state) {
+    private void verifyHypotheses(AgentRunState state, RunHandle handle) {
         List<RiskHypothesis> hypotheses = new ArrayList<>(state.hypotheses());
         for (int round = 1; round <= maxVerificationRounds; round++) {
+            handle.checkActive();
             state.verificationRounds(round);
             state.emit("verification.iteration", "verification-loop", "RUNNING",
                     "验证轮次 " + round + "/" + maxVerificationRounds);
@@ -231,7 +251,7 @@ public class FlightGuardV2Service {
                 state.emit("verification.gap", "verification-loop", "WAITING",
                         "证据覆盖不足，允许补充一次只读日志查询");
                 if (queryLogsTools != null && !hasEvidenceFrom(state, "verification-logs")) {
-                    state.addEvidence(collect("verification-logs", "CLS-verification", this::queryLogs));
+                    state.addEvidence(await(collectAsync(handle, "verification-logs", "CLS-verification", this::queryLogs), handle));
                 }
             }
             boolean verified = hasEvidenceFrom(state, "metrics")
@@ -258,7 +278,7 @@ public class FlightGuardV2Service {
     private void applyPolicyGate(AgentRunState state) {
         boolean allFindingsHaveEvidence = state.findings().stream()
                 .allMatch(finding -> finding.evidenceIds() != null && !finding.evidenceIds().isEmpty());
-        boolean hasFailedEvidence = state.evidence().stream().anyMatch(item -> "FAILED".equals(item.status()));
+        boolean hasFailedEvidence = state.evidence().stream().anyMatch(item -> !"SUCCESS".equals(item.status()));
         state.policyStatus(allFindingsHaveEvidence && !hasFailedEvidence ? "PASSED" : "REVIEW_REQUIRED");
         state.emit("policy.checked", "policy-gate", state.policyStatus(),
                 "只读工具策略检查完成，写操作未被自动执行");
@@ -336,19 +356,47 @@ public class FlightGuardV2Service {
         return state.evidence().stream().anyMatch(item -> item.id().equals(id) && "SUCCESS".equals(item.status()));
     }
 
-    private Evidence collect(String id, String source, Supplier<String> supplier) {
+    private CompletableFuture<Evidence> collectAsync(RunHandle handle, String id, String source, Supplier<String> supplier) {
         long start = System.nanoTime();
         try {
-            return new Evidence(id, source, "SUCCESS", elapsedMs(start), abbreviate(supplier.get(), 1600));
-        } catch (Exception exception) {
-            logger.warn("Agent v2 证据采集失败: source={}", source, exception);
-            return new Evidence(id, source, "FAILED", elapsedMs(start), "工具调用失败: " + safeMessage(exception));
+            handle.checkActive();
+            AgentExecutionService.Task<ToolResult> task = executionService.submitTool(handle.remainingMs(),
+                    () -> ToolResult.parse(supplier.get(), objectMapper));
+            handle.children.add(task);
+            if (handle.finished.get()) task.cancel();
+            return task.completion().handle((result, failure) -> {
+                if (failure == null) return new Evidence(id, source, result.status(), elapsedMs(start), abbreviate(result.content(), 1600));
+                Throwable cause = unwrap(failure);
+                String status = cause instanceof AgentExecutionService.DeadlineExceededException ? "TIMEOUT"
+                        : cause instanceof AgentExecutionService.TaskCancelledException ? "CANCELLED" : "ERROR";
+                return new Evidence(id, source, status, elapsedMs(start), "工具采集未完成: " + status);
+            });
+        } catch (AgentExecutionService.OverloadedException busy) {
+            return CompletableFuture.completedFuture(new Evidence(id, source, "REJECTED", elapsedMs(start), "工具执行资源繁忙，请稍后重试"));
         }
+    }
+
+    private <T> T await(CompletableFuture<T> future, RunHandle handle) {
+        try {
+            return future.get(handle.remainingMs(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException cancelled) {
+            Thread.currentThread().interrupt();
+            throw new AgentExecutionService.TaskCancelledException();
+        } catch (TimeoutException expired) {
+            throw new AgentExecutionService.DeadlineExceededException();
+        } catch (ExecutionException failure) {
+            throw new CompletionException(unwrap(failure));
+        }
+    }
+
+    private Throwable unwrap(Throwable failure) {
+        while ((failure instanceof CompletionException || failure instanceof ExecutionException) && failure.getCause() != null) failure = failure.getCause();
+        return failure;
     }
 
     private String queryLogs() {
         if (queryLogsTools == null) {
-            return "日志工具未配置，当前运行仅使用指标和知识库证据";
+            return "{\"status\":\"unavailable\",\"message\":\"日志工具未配置\"}";
         }
         return queryLogsTools.queryLogs("ap-guangzhou", "gds-gateway", "timeout OR supplier OR search", 5);
     }
@@ -368,16 +416,16 @@ public class FlightGuardV2Service {
         return exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
     }
 
-    @PreDestroy
-    public void shutdown() {
-        workflowExecutor.shutdownNow();
-    }
-
     public static final class RunHandle {
         private final AgentRunState state;
+        private final long deadlineNanos;
+        private final AtomicBoolean finished = new AtomicBoolean();
+        private final List<AgentExecutionService.Task<?>> children = new CopyOnWriteArrayList<>();
+        private volatile AgentExecutionService.Task<AgentRunResult> task;
 
-        private RunHandle(AgentRunState state) {
+        private RunHandle(AgentRunState state, long timeoutMs) {
             this.state = state;
+            deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
         }
 
         public String runId() {
@@ -386,6 +434,26 @@ public class FlightGuardV2Service {
 
         private AgentRunState state() {
             return state;
+        }
+
+        private long remainingMs() {
+            checkActive();
+            return Math.max(1, TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime()));
+        }
+
+        private void checkActive() {
+            if (finished.get() || Thread.currentThread().isInterrupted()) throw new AgentExecutionService.TaskCancelledException();
+            if (System.nanoTime() >= deadlineNanos) throw new AgentExecutionService.DeadlineExceededException();
+        }
+
+        public void cancel() {
+            finish();
+            if (task != null) task.cancel();
+        }
+
+        private void finish() {
+            finished.set(true);
+            for (AgentExecutionService.Task<?> child : children) child.cancel();
         }
     }
 }

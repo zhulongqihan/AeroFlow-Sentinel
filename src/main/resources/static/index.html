@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>航旅预订链路稳定性 Agent</title>
-    <link rel="stylesheet" href="styles.css?v=20260808-v3">
+    <link rel="stylesheet" href="styles.css?v=20260809-v4">
     <!-- Markdown 渲染库 -->
-    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <script src="vendor/marked-11.1.1.umd.js"></script>
+    <script src="vendor/dompurify-3.4.16.min.js"></script>
+    <script src="safe-markdown.js?v=20261022-safety1"></script>
     <!-- 代码高亮库（可选） -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
     <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/es/highlight.min.js"></script>
@@ -168,6 +170,54 @@
                             <span id="agentRuntimeEvaluation">Trace Eval: -</span>
                         </div>
 
+                        <section class="runtime-control-plane" aria-label="Runtime Control Plane">
+                            <div class="runtime-control-plane-heading">
+                                <div>
+                                    <span class="runtime-section-kicker">Runtime Control Plane</span>
+                                    <h3>Context、循环与工具边界</h3>
+                                </div>
+                                <span class="runtime-profile-badge" id="agentRuntimeControlStatus">DEMO PROFILE · READ-ONLY</span>
+                            </div>
+                            <div class="runtime-control-grid">
+                                <section class="runtime-control-card">
+                                    <div class="runtime-card-heading">
+                                        <h3>Context Pack</h3>
+                                        <span>输入契约</span>
+                                    </div>
+                                    <div class="runtime-control-list" id="agentRuntimeContextList">
+                                        <div class="runtime-empty">运行后显示压缩后的任务上下文</div>
+                                    </div>
+                                </section>
+                                <section class="runtime-control-card">
+                                    <div class="runtime-card-heading">
+                                        <h3>Loop Inspector</h3>
+                                        <span>有上限验证</span>
+                                    </div>
+                                    <div class="runtime-control-list" id="agentRuntimeLoopList">
+                                        <div class="runtime-empty">等待验证器作出下一步决策</div>
+                                    </div>
+                                </section>
+                                <section class="runtime-control-card">
+                                    <div class="runtime-card-heading">
+                                        <h3>Tool Governance</h3>
+                                        <span>Evidence-only</span>
+                                    </div>
+                                    <div class="runtime-tool-list" id="agentRuntimeToolList">
+                                        <div class="runtime-empty">等待工具调用状态</div>
+                                    </div>
+                                </section>
+                            </div>
+                            <section class="runtime-evaluation-strip">
+                                <div class="runtime-evaluation-summary">
+                                    <span class="runtime-section-kicker">Trace Evaluation</span>
+                                    <strong id="agentRuntimeEvaluationSummary">等待运行</strong>
+                                </div>
+                                <div class="runtime-evaluation-checks" id="agentRuntimeEvaluationChecks">
+                                    <span class="runtime-empty">运行后显示通过的轨迹契约检查</span>
+                                </div>
+                            </section>
+                        </section>
+
                         <div class="runtime-grid">
                             <section class="runtime-card runtime-trace-card">
                                 <div class="runtime-card-heading">
@@ -307,6 +357,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=20260808-v3"></script>
+    <script src="app.js?v=20261022-safety1"></script>
 </body>
 </html>

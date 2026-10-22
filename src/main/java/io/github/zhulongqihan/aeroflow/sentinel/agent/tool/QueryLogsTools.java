@@ -172,7 +172,8 @@ public class QueryLogsTools {
                 logger.info("使用 Mock 数据，返回 {} 条日志", logEntries.size());
             } else {
                 // 真实模式：调用 CLS API（这里预留接口，后续实现）
-                return buildErrorResponse("CLS 真实查询尚未实现，请启用 mock 模式进行测试");
+                return objectMapper.writeValueAsString(Map.of("status", "unavailable", "success", false,
+                        "message", "CLS 真实查询尚未实现，请启用 mock 模式进行测试"));
             }
             
             // 构建成功响应

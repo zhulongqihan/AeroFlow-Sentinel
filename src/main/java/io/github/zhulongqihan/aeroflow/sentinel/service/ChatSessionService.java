@@ -62,8 +62,22 @@ public class ChatSessionService {
     }
 
     public SessionSnapshot appendMessagePair(String sessionId, String userQuestion, String aiAnswer) {
-        storageLock.writeLock().lock();
+        return appendMessagePair(sessionId, userQuestion, aiAnswer, null);
+    }
+
+    /** The execution guard runs at the commit boundary, after any storage-lock wait. */
+    public SessionSnapshot appendMessagePair(String sessionId, String userQuestion, String aiAnswer, Runnable beforeCommit) {
+        if (beforeCommit == null) {
+            storageLock.writeLock().lock();
+        } else {
+            try { storageLock.writeLock().lockInterruptibly(); }
+            catch (InterruptedException cancelled) {
+                Thread.currentThread().interrupt();
+                throw new AgentExecutionService.TaskCancelledException();
+            }
+        }
         try {
+            if (beforeCommit != null) beforeCommit.run();
             String resolvedSessionId = resolveSessionId(sessionId);
             StoredSession storedSession = sessions.computeIfAbsent(resolvedSessionId, this::createEmptySession);
 

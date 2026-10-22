@@ -1,0 +1,22 @@
+[
+  {
+    "file": "dompurify-3.4.16.min.js",
+    "source": "https://raw.githubusercontent.com/cure53/DOMPurify/3.4.16/dist/purify.min.js",
+    "sha256": "2c90a9b46d6463f26038a29b686e82bc91de01fdac9d5229e7cfe3b360134ea2"
+  },
+  {
+    "file": "DOMPurify-LICENSE",
+    "source": "https://raw.githubusercontent.com/cure53/DOMPurify/3.4.16/LICENSE",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "marked-11.1.1.umd.js",
+    "source": "https://registry.npmjs.org/marked/-/marked-11.1.1.tgz#package/lib/marked.umd.js",
+    "sha256": "01bfc8f0566096b48e4319b1084c78e159e7e3856639169c1b26dabb0d84c057"
+  },
+  {
+    "file": "marked-LICENSE",
+    "source": "https://registry.npmjs.org/marked/-/marked-11.1.1.tgz#package/LICENSE.md",
+    "sha256": "8e3a3f82f59a60958f56ca08f445647c32a4733dc7ca6c2c46f6eb898471ab9c"
+  }
+]

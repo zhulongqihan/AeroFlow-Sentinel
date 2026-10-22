@@ -127,23 +127,10 @@ class AeroFlowSentinelApp {
         checkMarked();
     }
 
-    // 安全地渲染 Markdown
+    // All message, streamed response, history and report HTML uses one allowlist policy.
     renderMarkdown(content) {
-        if (!content) return '';
-        
-        // 检查 marked 是否可用
-        if (typeof marked === 'undefined') {
-            console.warn('marked 库未加载，使用纯文本显示');
-            return this.escapeHtml(content);
-        }
-        
-        try {
-            const html = marked.parse(content);
-            return html;
-        } catch (e) {
-            console.error('Markdown 渲染失败:', e);
-            return this.escapeHtml(content);
-        }
+        if (window.AeroFlowMarkdown) return window.AeroFlowMarkdown.render(content);
+        return this.escapeHtml(content == null ? '' : String(content));
     }
 
     // 高亮代码块
@@ -225,6 +212,12 @@ class AeroFlowSentinelApp {
         this.agentRuntimeEvidenceCount = document.getElementById('agentRuntimeEvidenceCount');
         this.agentRuntimeFindingCount = document.getElementById('agentRuntimeFindingCount');
         this.agentRuntimeReportContent = document.getElementById('agentRuntimeReportContent');
+        this.agentRuntimeControlStatus = document.getElementById('agentRuntimeControlStatus');
+        this.agentRuntimeContextList = document.getElementById('agentRuntimeContextList');
+        this.agentRuntimeLoopList = document.getElementById('agentRuntimeLoopList');
+        this.agentRuntimeToolList = document.getElementById('agentRuntimeToolList');
+        this.agentRuntimeEvaluationSummary = document.getElementById('agentRuntimeEvaluationSummary');
+        this.agentRuntimeEvaluationChecks = document.getElementById('agentRuntimeEvaluationChecks');
         
         // 初始化时检查是否需要居中
         this.checkAndSetCentered();
@@ -1952,7 +1945,8 @@ class AeroFlowSentinelApp {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'text/event-stream'
+                'Accept': 'text/event-stream',
+                'X-Session-Id': this.sessionId
             },
             body: JSON.stringify(request)
         });
@@ -2065,6 +2059,8 @@ class AeroFlowSentinelApp {
             COMPLETED: '节点完成',
             SUCCEEDED: '运行成功',
             FAILED: '运行失败',
+            TIMED_OUT: '运行超时',
+            CANCELLED: '已停止',
             VERIFIED: '已验证',
             NEEDS_REVIEW: '待确认'
         }[state.status] || state.status;
@@ -2079,7 +2075,7 @@ class AeroFlowSentinelApp {
                 : 'Trace Eval: -';
         }
         this.agentRuntimeStatusDot.className = 'runtime-status-dot ' + (
-            state.status === 'FAILED' ? 'failed' : (state.running ? 'running' : (state.status === 'SUCCEEDED' ? 'success' : ''))
+            ['FAILED', 'TIMED_OUT', 'CANCELLED'].includes(state.status) ? 'failed' : (state.running ? 'running' : (state.status === 'SUCCEEDED' ? 'success' : ''))
         );
 
         if (this.agentRuntimeReplayBtn) this.agentRuntimeReplayBtn.disabled = !state.runId;
@@ -2087,6 +2083,112 @@ class AeroFlowSentinelApp {
         this.renderRuntimeEvidence(result?.evidence || []);
         this.renderRuntimeFindings(result?.findings || []);
         this.renderRuntimeReport(state.report);
+        this.renderRuntimeControlPlane(result, state.events, state.evaluation);
+    }
+
+    renderRuntimeControlPlane(result, events, evaluation) {
+        const request = result?.request || {};
+        const contextPack = result?.contextPack || {};
+        const evidence = result?.evidence || [];
+        const latestVerification = [...events].reverse().find(event =>
+            event.eventType === 'verification.result' || event.eventType === 'verification.iteration'
+        );
+        const hasRun = Boolean(result || events.length);
+
+        if (this.agentRuntimeControlStatus) {
+            this.agentRuntimeControlStatus.textContent = result
+                ? 'DEMO PROFILE · READ-ONLY'
+                : (hasRun ? 'RUNNING · READ-ONLY' : 'DEMO PROFILE · READ-ONLY');
+        }
+
+        if (this.agentRuntimeContextList) {
+            if (!hasRun) {
+                this.agentRuntimeContextList.innerHTML = '<div class="runtime-empty">运行后显示压缩后的任务上下文</div>';
+            } else {
+                const contextRows = [
+                    ['场景', contextPack.scenario || request.scenario || '-'],
+                    ['航线', contextPack.route || request.route || '-'],
+                    ['窗口', contextPack.timeRange || request.timeRange || '-'],
+                    ['约束', contextPack.constraints || '只读证据采集'],
+                    ['预算', contextPack.budgetChars ? `${contextPack.budgetChars} chars` : 'bounded context']
+                ];
+                this.agentRuntimeContextList.innerHTML = contextRows.map(([label, value]) => `
+                    <div class="runtime-control-row">
+                        <span>${this.escapeHtml(label)}</span>
+                        <strong>${this.escapeHtml(String(value))}</strong>
+                    </div>
+                `).join('');
+            }
+        }
+
+        if (this.agentRuntimeLoopList) {
+            if (!hasRun) {
+                this.agentRuntimeLoopList.innerHTML = '<div class="runtime-empty">等待验证器作出下一步决策</div>';
+            } else {
+                const roundText = result ? `${result.verificationRounds || 0} / 2` : '1 / 2';
+                const evaluatorText = result?.policyStatus || latestVerification?.status || 'CHECKING';
+                const decisionText = result
+                    ? (result.policyStatus === 'PASSED' ? 'STOP · policy passed' : 'REVIEW · policy pending')
+                    : 'CONTINUE · collecting evidence';
+                const loopRows = [
+                    ['Round', roundText],
+                    ['Evaluator', evaluatorText],
+                    ['Next action', decisionText],
+                    ['Write access', 'BLOCKED']
+                ];
+                this.agentRuntimeLoopList.innerHTML = loopRows.map(([label, value]) => `
+                    <div class="runtime-control-row">
+                        <span>${this.escapeHtml(label)}</span>
+                        <strong class="${label === 'Write access' ? 'runtime-value-safe' : ''}">${this.escapeHtml(String(value))}</strong>
+                    </div>
+                `).join('');
+            }
+        }
+
+        if (this.agentRuntimeToolList) {
+            const toolNames = [
+                ['metrics', 'Metrics'],
+                ['logs', 'Logs'],
+                ['knowledge', 'Knowledge']
+            ];
+            this.agentRuntimeToolList.innerHTML = toolNames.map(([key, label]) => {
+                const item = evidence.find(source =>
+                    `${source.id || ''} ${source.source || ''}`.toLowerCase().includes(key)
+                );
+                const status = item?.status || (hasRun ? 'PENDING' : 'WAITING');
+                const latency = item?.latencyMs !== undefined ? `${item.latencyMs} ms` : '-';
+                return `
+                    <div class="runtime-tool-row">
+                        <div>
+                            <strong>${label}</strong>
+                            <span>READ_ONLY</span>
+                        </div>
+                        <div class="runtime-tool-state">
+                            <span class="runtime-tool-status ${status.toLowerCase()}">${this.escapeHtml(status)}</span>
+                            <small>${this.escapeHtml(latency)}</small>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        if (this.agentRuntimeEvaluationSummary) {
+            this.agentRuntimeEvaluationSummary.textContent = evaluation
+                ? `${evaluation.passed ? 'PASS' : 'REVIEW'} · ${evaluation.score}`
+                : (result ? '等待评测回写' : '等待运行');
+        }
+        if (this.agentRuntimeEvaluationChecks) {
+            const checks = evaluation?.checks || [];
+            if (!checks.length) {
+                this.agentRuntimeEvaluationChecks.innerHTML = '<span class="runtime-empty">运行后显示通过的轨迹契约检查</span>';
+            } else {
+                this.agentRuntimeEvaluationChecks.innerHTML = checks.map(check => `
+                    <span class="runtime-check-pill ${check.passed ? 'passed' : 'failed'}">
+                        <b>${check.passed ? 'PASS' : 'REVIEW'}</b>${this.escapeHtml(check.id || check.name || 'contract check')}
+                    </span>
+                `).join('');
+            }
+        }
     }
 
     renderRuntimeTrace(events) {
